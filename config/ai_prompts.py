@@ -1,0 +1,324 @@
+"""
+AI Prompts
+Centralized storage for all AI prompts used in the system
+"""
+
+# Phase 2: Identify Recruiter ICP
+PROMPT_IDENTIFY_ICP = """You are an expert at analyzing recruiter websites to extract their Ideal Client Profile (ICP) and the specific roles they fill.
+
+Your task is to analyze the recruiter's website content and extract:
+1. Industries they serve (e.g., "Technology", "Healthcare", "Finance")
+2. Company sizes they target (e.g., "10-100 employees", "100-500 employees")
+3. Geographies they operate in (countries, states, cities)
+4. Specific roles they fill (be PRECISE - e.g., "IT Help Desk Support", NOT just "IT")
+5. Keywords for Boolean search (variations of role names)
+6. Primary country for LinkedIn search
+7. LinkedIn geoId for that country
+
+CRITICAL Rules for Geography:
+- Look for ANY location indicators: address, phone numbers, currency symbols (£=UK, $=US, €=EU), domain extensions (.co.uk, .com, .ca)
+- If geographies are listed in order (e.g., "UK, EMEA, APAC, US"), the FIRST one is the primary market
+- Look for "based in", "located in", "operating from" phrases to identify headquarters
+- Email domains can indicate location (.co.uk = UK, .ca = Canada)
+- The primary country is where the recruiter is BASED, not just where they recruit
+
+Role Extraction Rules:
+- Be SPECIFIC about roles (e.g., "Network Engineer", NOT "Engineer")
+- Include role variations (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer")
+- Extract company size ranges if mentioned
+- Identify ALL geographies mentioned
+
+LinkedIn geoId Reference:
+- United Kingdom: 101165590
+- United States: 103644278
+- Canada: 101174742
+- Germany: 101282230
+- Australia: 101452733
+- Singapore: 102454443
+
+Website Content:
+{website_content}
+
+Output (JSON only, no explanation):
+{{
+  "industries": ["Industry 1", "Industry 2"],
+  "company_sizes": ["10-100 employees"],
+  "geographies": ["United States", "California"],
+  "roles_filled": [
+    "Specific Role Title 1",
+    "Specific Role Title 2"
+  ],
+  "boolean_keywords": [
+    "Role Keyword 1",
+    "Role Keyword 2 Variation"
+  ],
+  "primary_country": "United States",
+  "linkedin_geo_id": "103644278"
+}}
+"""
+
+# Phase 3: Generate Boolean Search
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a STRICT, PRECISE Boolean search string based on the recruiter's ICP.
+
+Rules:
+1. ALWAYS use quotes around each role (e.g., "Network Engineer")
+2. ALWAYS use OR operators between roles
+3. NEVER use vague terms (e.g., "Engineer" alone)
+4. Include variations of roles (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer")
+5. Keep search focused and specific
+
+ICP Data:
+{icp_data}
+
+Generate:
+1. Boolean search string (properly formatted with quotes and OR)
+2. URL-encoded version for LinkedIn
+3. Full LinkedIn URL with parameters:
+   - f_TPR=r86400 (last 24 hours)
+   - f_JT=F (full-time)
+   - geoId=<geo_id_from_icp>
+   - keywords=<url_encoded_boolean>
+   - sortBy=R (relevance)
+
+Output (JSON only):
+{{{{
+  "boolean_search": "(\"Role 1\" OR \"Role 1 Variation\" OR \"Role 2\" OR \"Role 2 Variation\")",
+  "linkedin_url": "https://www.linkedin.com/jobs/search/?f_JT=F&f_TPR=r86400&geoId=103644278&keywords=...&sortBy=R",
+  "geo_id": "103644278"
+}}}}
+"""
+
+# Phase 5: Validate Direct Hirer
+PROMPT_VALIDATE_DIRECT_HIRER = """You are a recruiter validation expert. Your job is to determine if a company is a DIRECT HIRER or a RECRUITER/STAFFING AGENCY.
+
+Direct hirers:
+- Hire for their own company
+- Job descriptions mention "we are hiring", "join our team", "our company"
+- Company description shows products/services they build/sell
+- Industries like "Technology", "Healthcare", "Manufacturing", "Finance", etc.
+- Company focuses on their own business operations
+
+Recruiters/Staffing agencies:
+- Hire on behalf of other companies
+- Job descriptions mention "our client", "recruiting for", "staffing firm", "on behalf of"
+- Company description focuses on recruitment/staffing/hiring services
+- Industries like "Staffing and Recruiting", "Human Resources Services", "Employment Services"
+- Company name includes words like "Staffing", "Recruiting", "Talent", "Personnel"
+
+Input:
+Company Name: {company_name}
+Company Description: {company_description}
+Company Industry: {company_industry}
+Job Description: {job_description}
+
+Output (JSON only):
+{{
+  "is_direct_hirer": true/false,
+  "confidence": "high/medium/low",
+  "reason": "Brief explanation why"
+}}
+"""
+
+# Phase 7: Validate ICP Fit
+PROMPT_VALIDATE_ICP_FIT = """You are an ICP matching expert. Determine if a company is a good fit for the recruiter's target profile.
+
+Recruiter's ICP:
+{recruiter_icp}
+
+Company Data:
+Company Name: {company_name}
+Company Description: {company_description}
+Company Industry: {company_industry}
+Employee Count: {employee_count}
+Location: {location}
+Roles Hiring: {roles_hiring}
+
+Evaluate:
+1. Does company match target industries?
+2. Does company size match target range?
+3. Does geography match target locations?
+4. Do roles align with recruiter's specialization?
+
+Output (JSON only):
+{{
+  "is_good_fit": true/false,
+  "match_score": 0.0-1.0,
+  "industries_match": true/false,
+  "size_match": true/false,
+  "geography_match": true/false,
+  "roles_match": true/false,
+  "reason": "Brief explanation"
+}}
+"""
+
+# Phase 8: Determine Decision Maker Role
+PROMPT_DETERMINE_DECISION_MAKER = """You are an expert at identifying the right decision-maker to contact for recruiting opportunities.
+
+Rules based on company size and role seniority:
+
+Company <20 employees + any role → Target: Founder, CEO, Co-Founder
+Company 20-50 employees + senior tech role → Target: CTO, VP Engineering, Head of Engineering
+Company 20-50 employees + junior tech role → Target: Head of IT, Engineering Manager, IT Manager
+Company 50-100 employees + senior role → Target: CTO, VP of [relevant department], Director of [relevant department]
+Company 50-100 employees + junior role → Target: [Department] Manager, Head of [Department]
+
+Input:
+Company Size: {company_size} employees
+Role Being Hired: {role_title}
+Role Seniority: {role_seniority} (junior/mid/senior/executive)
+Role Type: {role_type} (e.g., "Engineering", "IT", "Security", "Operations")
+
+Output (JSON only):
+{{
+  "target_role": "CTO",
+  "alternative_roles": ["VP Engineering", "Head of Engineering"],
+  "reason": "Brief explanation"
+}}
+"""
+
+# Phase 9: Generate Outreach Email
+PROMPT_GENERATE_EMAIL = """You are writing to a recruiter, helping them find clients (companies hiring). You're someone who knows which companies are actively hiring and help recruiters fill those roles. Keep it cool, human, insider tone.
+
+TONE:
+- You're a peer helping a recruiter find new business opportunities
+- Conversational, like you're passing intel to someone in the industry
+- Insider voice - you know these companies and what they're hiring for
+- Casual but sharp - no corporate BS
+- You're saying "here are companies looking to fill these roles, could be good clients for you"
+
+EXACT FORMAT TO FOLLOW:
+
+{recruiter_name},
+
+[1-2 sentences - real reason you're sending this, frame it as recruitment opportunities]
+
+1. [Company Name] — [Role Title] 
+[1-2 lines: what they do, insider details if relevant - why this is a good opportunity]
+[1-2 lines: what the role is, what kind of candidate they need]
+Website: [company website URL]
+Job: [FULL JOB POSTING LINK]
+
+2. [Company Name] — [Role Title]
+[repeat exact structure - full URLs required]
+
+[Continue for all companies]
+
+[Optional 1-2 sentence closer about the opportunity]
+
+[Final question - casual, genuine timezone suggestion. For GMT: "Free for a quick call around 3pm your time this week?"]
+
+CRITICAL RULES:
+1. INCLUDE BOTH website URL AND full job posting link for each company
+2. Frame this as recruitment OPPORTUNITIES for the recruiter - they're finding candidates to fill these roles
+3. No marketing speak: no "innovative", "cutting-edge", "dynamic", etc.
+4. Sound like a human - contractions OK, casual language is good
+5. Each company: 4-6 lines max
+6. Opening: 1-2 lines only
+7. No signature, no closing lines after the question
+8. Use insider intelligence naturally - weave in specific data if available
+9. Company descriptions are FACTUAL - what they do, their market position
+
+You are: {sender_name} ({sender_email})
+Writing to: {recruiter_name}
+Recipient timezone: {recruiter_timezone}
+{email_thread_section}
+
+Companies (with full job links and websites):
+{companies_data}
+
+Write the email now (plain text, NOT JSON):
+"""
+
+# Prompt helper functions
+def format_icp_prompt(website_content: str) -> str:
+    """Format the ICP identification prompt"""
+    return PROMPT_IDENTIFY_ICP.format(website_content=website_content)
+
+def format_boolean_search_prompt(icp_data: dict) -> str:
+    """Format the Boolean search generation prompt"""
+    return PROMPT_GENERATE_BOOLEAN_SEARCH.format(icp_data=str(icp_data))
+
+def format_direct_hirer_prompt(company_name: str, company_description: str, 
+                                company_industry: str, job_description: str) -> str:
+    """Format the direct hirer validation prompt"""
+    return PROMPT_VALIDATE_DIRECT_HIRER.format(
+        company_name=company_name,
+        company_description=company_description or "Not available",
+        company_industry=company_industry or "Not available",
+        job_description=job_description
+    )
+
+def format_icp_fit_prompt(recruiter_icp: dict, company_name: str, company_description: str,
+                          company_industry: str, employee_count: int, location: str, 
+                          roles_hiring: list) -> str:
+    """Format the ICP fit validation prompt"""
+    return PROMPT_VALIDATE_ICP_FIT.format(
+        recruiter_icp=str(recruiter_icp),
+        company_name=company_name,
+        company_description=company_description or "Not available",
+        company_industry=company_industry or "Not available",
+        employee_count=employee_count,
+        location=location or "Not available",
+        roles_hiring=str(roles_hiring)
+    )
+
+def format_decision_maker_prompt(company_size: int, role_title: str, 
+                                  role_seniority: str, role_type: str) -> str:
+    """Format the decision maker determination prompt"""
+    return PROMPT_DETERMINE_DECISION_MAKER.format(
+        company_size=company_size,
+        role_title=role_title,
+        role_seniority=role_seniority,
+        role_type=role_type
+    )
+
+def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: str = None, 
+                       sender_email: str = None, email_thread: str = None, recruiter_timezone: str = None) -> str:
+    """Format the outreach email generation prompt"""
+    # Format companies data with insider intelligence
+    companies_text = ""
+    for i, company in enumerate(companies_data, 1):
+        companies_text += f"\nCompany {i}:\n"
+        companies_text += f"  Name: {company['company_name']}\n"
+        companies_text += f"  Website: {company['company_website']}\n"
+        companies_text += f"  Employee Count: {company.get('employee_count', 'Unknown')}\n"
+        
+        # Add insider intelligence if available
+        if 'insider_intelligence' in company:
+            intel = company['insider_intelligence']
+            companies_text += f"  Business Description: {intel.get('business_description', '')}\n"
+            if intel.get('insider_details'):
+                companies_text += f"  Key Details:\n"
+                for detail in intel['insider_details']:
+                    companies_text += f"    - {detail}\n"
+        else:
+            companies_text += f"  Description: {company.get('company_description', '')[:200]}\n"
+        
+        companies_text += f"  Open Roles:\n"
+        for role in company['roles_hiring']:
+            posted_date = role.get('posted_at', '')
+            job_url = role.get('job_url', '')
+            companies_text += f"    - {role['job_title']} (Posted: {posted_date})\n"
+            if job_url:
+                companies_text += f"      Full Job Link: {job_url}\n"
+    
+    # Add email thread context if provided
+    email_thread_context = ""
+    email_thread_section = ""
+    if email_thread:
+        email_thread_context = " that continues the conversation naturally"
+        email_thread_section = f"\nPrevious Email Thread:\n{email_thread}\n"
+    
+    # Set timezone for time calculation
+    if not recruiter_timezone:
+        recruiter_timezone = "GMT"
+    
+    return PROMPT_GENERATE_EMAIL.format(
+        recruiter_name=recruiter_name,
+        sender_name=sender_name or "[Your Name]",
+        sender_email=sender_email or "",
+        recruiter_timezone=recruiter_timezone,
+        email_thread_context=email_thread_context,
+        email_thread_section=email_thread_section,
+        companies_data=companies_text
+    )

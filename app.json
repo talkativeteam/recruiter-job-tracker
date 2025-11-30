@@ -1,0 +1,41 @@
+{
+  "name": "recruiter-job-tracker",
+  "description": "AI-powered recruiter ICP job tracker with automated outreach emails",
+  "repository": "https://github.com/yourusername/recruiter-job-tracker",
+  "keywords": ["recruitment", "ai", "linkedin", "outreach", "job-tracking"],
+  "env": {
+    "OPENAI_API_KEY": {
+      "description": "OpenAI API key for GPT models",
+      "required": true
+    },
+    "APIFY_API_KEY": {
+      "description": "Apify API key for LinkedIn job scraping",
+      "required": true
+    },
+    "EXA_API_KEY": {
+      "description": "Exa API key for decision maker search (optional)",
+      "required": false
+    },
+    "SUPABASE_URL": {
+      "description": "Supabase project URL",
+      "required": true
+    },
+    "SUPABASE_KEY": {
+      "description": "Supabase anon key",
+      "required": true
+    },
+    "WEBHOOK_URL": {
+      "description": "Webhook URL to receive results",
+      "value": "https://n8n.srv1125040.hstgr.cloud/webhook/2"
+    },
+    "PORT": {
+      "description": "Port to run the server on",
+      "value": "5000"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
