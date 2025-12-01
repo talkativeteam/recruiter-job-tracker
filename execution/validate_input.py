@@ -17,8 +17,8 @@ from execution.supabase_logger import SupabaseLogger
 
 class InputValidator:
     def __init__(self):
-        self.required_fields = ["client_name", "client_email", "client_website", "email_sender_name", "email_sender_address"]
-        self.optional_fields = ["max_jobs_to_scrape", "callback_webhook_url", "email_thread", "recruiter_timezone"]
+        self.required_fields = ["client_name", "client_email", "client_website", "max_jobs_to_scrape"]
+        self.optional_fields = ["email_sender_name", "email_sender_address", "callback_webhook_url", "email_thread", "recruiter_timezone"]
     
     def normalize_url(self, url: str) -> str:
         """Add https:// if URL missing scheme"""
@@ -54,9 +54,10 @@ class InputValidator:
         if not self.validate_email(input_data["client_email"]):
             return False, f"Invalid email format: {input_data['client_email']}", {}
         
-        # Validate email_sender_address
-        if not self.validate_email(input_data["email_sender_address"]):
-            return False, f"Invalid sender email format: {input_data['email_sender_address']}", {}
+        # Validate email_sender_address (optional)
+        email_sender_address = input_data.get("email_sender_address", "")
+        if email_sender_address and not self.validate_email(email_sender_address):
+            return False, f"Invalid sender email format: {email_sender_address}", {}
         
         # Validate client_website
         if not self.validate_url(input_data["client_website"]):
@@ -84,11 +85,12 @@ class InputValidator:
             "client_name": input_data["client_name"].strip(),
             "client_email": input_data["client_email"].strip().lower(),
             "client_website": self.normalize_url(input_data["client_website"]),
-            "email_sender_name": input_data["email_sender_name"].strip(),
-            "email_sender_address": input_data["email_sender_address"].strip().lower(),
+            "email_sender_name": input_data.get("email_sender_name", "Sid Kennedy").strip(),
+            "email_sender_address": input_data.get("email_sender_address", "kenne.s@talkativecrew.com").strip().lower(),
             "email_thread": input_data.get("email_thread", "").strip(),
             "max_jobs_to_scrape": max_jobs,
-            "callback_webhook_url": self.normalize_url(callback_url) if callback_url else None
+            "callback_webhook_url": self.normalize_url(callback_url) if callback_url else None,
+            "recruiter_timezone": input_data.get("recruiter_timezone", "UTC")
         }
         
         return True, "", validated_data
