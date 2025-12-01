@@ -156,17 +156,19 @@ VALIDATION RULES:
    - Example: If recruiter serves "CPG", company must be in food/beverage/consumer products
    - REJECT if wrong industry (e.g., "Biotech" when recruiter serves "CPG")
 
-2. **Role Type Match is MANDATORY**
-   - Job title must match recruiter's role specialization
-   - Example: If recruiter fills "VP Operations", reject "Accounts Payable Clerk"
-   - Be flexible with similar roles (e.g., "Head of Supply Chain" matches "VP Supply Chain")
+2. **Role Type Match - Be FLEXIBLE with variations**
+   - Job title should align with recruiter's functional area
+   - Example: If recruiter fills "Marketing Manager", ACCEPT "Marketing Communications Manager", "Brand Manager", "Product Marketing Manager"
+   - Example: If recruiter fills "VP Operations", ACCEPT "Director of Operations", "Head of Manufacturing"
+   - REJECT only if completely different function (e.g., "Accounts Payable" when recruiter fills "Sales")
 
-3. **Seniority Level Match is MANDATORY**
+3. **Seniority Level Match - FLEXIBLE within reasonable range**
    - Inferred seniority: {seniority_level}
-   - Executive search → VP, Director, Head of, SVP, C-Suite only
-   - Mid-level search → Manager, Senior Manager, Team Lead
-   - Entry-level search → Associate, Coordinator, Junior
-   - REJECT if seniority doesn't match
+   - If range includes both Executive + Mid-Level → ACCEPT Directors, VPs, Managers, Senior roles
+   - If Executive only → VP, Director, Head of, SVP, C-Suite
+   - If Mid-Level → Manager, Senior Manager, Team Lead, Senior Specialist
+   - Entry-level → Associate, Coordinator, Junior
+   - Be FLEXIBLE: "Senior Manager" can work for Executive search if strong role
 
 4. **Geography** - Important but flexible
    - Prefer matches in recruiter's geography
@@ -187,30 +189,43 @@ Output (JSON only):
 }}"""
     
     def _infer_seniority_level(self, recruiter_icp: Dict[str, Any]) -> str:
-        """Infer seniority level from roles and industries"""
+        """Infer seniority level from roles - returns range if mixed"""
         roles = recruiter_icp.get("roles_filled", [])
         industries = recruiter_icp.get("industries", [])
         
+        has_executive = False
+        has_mid = False
+        has_entry = False
+        
         # Check for executive indicators
         executive_keywords = ["VP", "Vice President", "Director", "Head of", "Chief", "SVP", "C-Suite", "Executive", "GM", "General Manager"]
-        for role in roles:
-            if any(keyword.lower() in role.lower() for keyword in executive_keywords):
-                return "Executive/Senior Leadership ($150k-$500k+)"
-        
-        # Check for mid-level indicators
         mid_keywords = ["Manager", "Senior", "Lead", "Sr."]
-        for role in roles:
-            if any(keyword.lower() in role.lower() for keyword in mid_keywords):
-                if not any(ex.lower() in role.lower() for ex in ["VP", "Director", "Head"]):
-                    return "Mid-Level Management ($80k-$150k)"
-        
-        # Check for entry-level indicators
         entry_keywords = ["Associate", "Coordinator", "Junior", "Assistant", "Analyst"]
-        for role in roles:
-            if any(keyword.lower() in role.lower() for keyword in entry_keywords):
-                return "Entry-Level/Individual Contributor ($40k-$80k)"
         
-        # Default to mid-senior if unclear
+        for role in roles:
+            role_lower = role.lower()
+            
+            # Check executive (VP, Director, Head, etc.)
+            if any(keyword.lower() in role_lower for keyword in executive_keywords):
+                has_executive = True
+            # Check mid-level (Manager, Senior, Lead) - but not if it's also executive
+            elif any(keyword.lower() in role_lower for keyword in mid_keywords):
+                has_mid = True
+            # Check entry-level
+            elif any(keyword.lower() in role_lower for keyword in entry_keywords):
+                has_entry = True
+        
+        # Return combined range if mixed levels
+        if has_executive and has_mid:
+            return "Executive to Mid-Level (Managers, Directors, VPs) ($80k-$500k+)"
+        elif has_executive:
+            return "Executive/Senior Leadership (Directors, VPs, C-Suite) ($150k-$500k+)"
+        elif has_mid:
+            return "Mid-Level Management (Managers, Senior roles) ($80k-$150k)"
+        elif has_entry:
+            return "Entry-Level/Individual Contributor ($40k-$80k)"
+        
+        # Default to broad mid-senior range
         return "Mid-Senior Level ($80k-$200k)"
 
 
