@@ -108,11 +108,12 @@ class DeepICPExtractor:
     
     def _scrape_pages(self, pages: Dict[str, str]) -> Dict[str, str]:
         """
-        Scrape all pages with Playwright
+        Scrape all pages with Playwright, fallback to HTTP if needed
         
         Returns:
             Dict of {page_type: markdown_content}
         """
+        # Try Playwright first
         try:
             from playwright.sync_api import sync_playwright
             from bs4 import BeautifulSoup
@@ -156,20 +157,26 @@ class DeepICPExtractor:
             
             return contents
             
-        except ImportError:
-            print("  ⚠️ Playwright not available, falling back to HTTP")
-            # Fallback to HTTP scraping
+        except (ImportError, Exception) as e:
+            # Fallback to HTTP scraping for ANY failure (ImportError, browser not installed, timeout, etc.)
+            print(f"  ⚠️ Playwright failed ({type(e).__name__}), falling back to HTTP")
             from execution.scrape_website import WebsiteScraper
             scraper = WebsiteScraper(run_id=self.run_id)
             contents = {}
             for page_type, url in pages.items():
-                success, content, _ = scraper.scrape_http(url)
-                if success:
-                    contents[page_type] = content
+                try:
+                    success, content, _ = scraper.scrape_http(url)
+                    if success:
+                        contents[page_type] = content
+                        print(f"    ✅ HTTP scraped {page_type}: {len(content)} characters")
+                except Exception as http_error:
+                    print(f"    ❌ HTTP failed for {page_type}: {http_error}")
+                    continue
+            
+            if not contents:
+                print(f"  ❌ Both Playwright and HTTP failed - no content extracted")
+            
             return contents
-        except Exception as e:
-            print(f"  ❌ Error scraping pages: {e}")
-            return {}
     
     def _extract_icp_with_ai(self, page_contents: Dict[str, str], base_url: str) -> Dict:
         """
