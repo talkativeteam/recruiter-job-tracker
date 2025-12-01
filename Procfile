@@ -1,1 +1,1 @@
-web: export PLAYWRIGHT_BROWSERS_PATH=/tmp/ms-playwright && chmod +x railway_setup.sh && ./railway_setup.sh && python3 api.py
+web: export PLAYWRIGHT_BROWSERS_PATH=/tmp/ms-playwright && bash -c 'echo "🎭 Installing Playwright browsers..." && mkdir -p $PLAYWRIGHT_BROWSERS_PATH && playwright install chromium && echo "✅ Chromium installed" || echo "❌ Install failed"' && python3 api.py
