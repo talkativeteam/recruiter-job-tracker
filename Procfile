@@ -1,1 +1,1 @@
-web: python3 api.py
+web: bash railway_setup.sh && python3 api.py
