@@ -152,22 +152,27 @@ class Orchestrator:
                 direct_hirer_prompt = ai_prompts.format_direct_hirer_prompt(
                     company["name"],
                     company.get("description", ""),
-                    "",  # industry
-                    " ".join([j.get("description", "") for j in company["jobs"][:2]])
-                )
-                
-                response = openai.call_with_retry(
-                    prompt=direct_hirer_prompt,
-                    model="gpt-4o-mini",
-                    response_format="json"
+                    company.get("industry", ""),  # Pass available industry
+                    " ".join([j.get("description", "") for j in company.get("jobs", [])[:2]])
                 )
                 
                 try:
+                    response = openai.call_with_retry(
+                        prompt=direct_hirer_prompt,
+                        model="gpt-4o-mini",
+                        response_format="json"
+                    )
                     result = json.loads(response)
                     if result.get("is_direct_hirer", False):
                         filtered_companies.append(company)
                 except:
-                    filtered_companies.append(company)  # Default include if error
+                    # Default include on error to avoid losing all companies
+                    filtered_companies.append(company)
+            
+            # If all companies filtered out, include all (better to be lenient)
+            if not filtered_companies and companies:
+                print(f"⚠️ All companies filtered. Including all {len(companies)} companies anyway.")
+                filtered_companies = companies
             
             self.stats["companies_validated"] = len(filtered_companies)
             print(f"✅ Validated {len(filtered_companies)} direct hirers")
@@ -186,24 +191,31 @@ class Orchestrator:
             
             # Phase 8: Enrich Company Intelligence (Website scraping + AI analysis)
             print("🧠 Phase 8: Enriching company intelligence...")
-            enricher = CompanyIntelligence(run_id=self.run_id)
+            enricher = CompanyIntelligence()
             
+            # Format companies for enrichment (enrich_companies expects specific field names)
+            companies_for_enrichment = []
             for company in top_companies:
-                try:
-                    # Scrape company website about page
-                    website_scraper = WebsiteScraper(run_id=self.run_id)
-                    company_url = company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com")
-                    about_page = website_scraper.scrape_http(company_url)[1] or ""
-                    
-                    # Extract company intelligence
-                    enrichment = enricher.enrich_company(
-                        company_name=company["name"],
-                        company_website_content=about_page,
-                        jobs=company["jobs"]
-                    )
-                    company["enrichment"] = enrichment if enrichment else {}
-                except Exception as e:
-                    print(f"⚠️ Could not enrich {company['name']}: {e}")
+                companies_for_enrichment.append({
+                    "company_name": company["name"],
+                    "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                    "company_description": company.get("description", ""),
+                    "employee_count": company.get("employee_count", 0)
+                })
+            
+            # Enrich all companies at once
+            try:
+                enriched_companies = enricher.enrich_companies(companies_for_enrichment)
+                
+                # Map enrichment results back to top_companies
+                for i, company in enumerate(top_companies):
+                    if i < len(enriched_companies):
+                        company["enrichment"] = enriched_companies[i].get("insider_intelligence", {})
+                    else:
+                        company["enrichment"] = {}
+            except Exception as e:
+                print(f"⚠️ Enrichment failed: {e}")
+                for company in top_companies:
                     company["enrichment"] = {}
             
             self.verified_companies = top_companies
