@@ -132,12 +132,15 @@ class Orchestrator:
             try:
                 boolean_data = json.loads(boolean_text)
                 self.boolean_search = boolean_data.get("boolean_search", "").strip()
+                # Normalize quotes - ensure we use proper double quotes for LinkedIn
+                self.boolean_search = self.boolean_search.replace("'", '"')
                 geo_id = boolean_data.get("geo_id", self.recruiter_icp.get("linkedin_geo_id", "101165590"))
                 country_code = self.recruiter_icp.get("country_code", "US")
+                print(f"✅ Parsed boolean search from JSON: {self.boolean_search}")
             except (json.JSONDecodeError, KeyError) as e:
                 print(f"⚠️ Failed to parse boolean search JSON: {e}")
                 # Fallback: try to extract boolean search from raw response
-                self.boolean_search = boolean_text
+                self.boolean_search = boolean_text.replace("'", '"')
                 geo_id = self.recruiter_icp.get("linkedin_geo_id", "101165590")
                 country_code = self.recruiter_icp.get("country_code", "US")
             
@@ -149,7 +152,7 @@ class Orchestrator:
             
             # Apify requires minimum 100 jobs
             jobs_to_scrape = max(100, validated.get('max_jobs_to_scrape', 100))
-            minimum_acceptable_jobs = 30  # Fallback to 7 days if fewer than 30 jobs found
+            minimum_acceptable_jobs = 5  # Lower threshold to test - was 30
             
             # Try 24 hours first (fresher results)
             print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
