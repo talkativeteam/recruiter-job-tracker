@@ -177,14 +177,14 @@ Output (JSON only):
 """
 
 # Phase 9: Generate Outreach Email
-PROMPT_GENERATE_EMAIL = """You are writing to a recruiter, helping them find clients (companies hiring). You're someone who knows which companies are actively hiring and help recruiters fill those roles. Keep it cool, human, insider tone.
+PROMPT_GENERATE_EMAIL = """You are writing to a recruiter, helping them find clients (companies hiring). You're someone who knows which companies are actively hiring and help recruiters fill those roles. Keep it professional but personable.
 
 TONE:
 - You're a peer helping a recruiter find new business opportunities
-- Conversational, like you're passing intel to someone in the industry
-- Insider voice - you know these companies and what they're hiring for
-- Casual but sharp - no corporate BS
-- You're saying "here are companies looking to fill these roles, could be good clients for you"
+- Straightforward and helpful - no hype needed
+- Direct voice - you know these companies and what they're hiring for
+- Casual but professional - no corporate jargon
+- You're saying "here are companies looking to fill these roles, could be good fits for you"
 
 EXACT FORMAT TO FOLLOW:
 
@@ -193,7 +193,7 @@ EXACT FORMAT TO FOLLOW:
 [1-2 sentences - real reason you're sending this, frame it as recruitment opportunities]
 
 1. [Company Name] — [Role Title] 
-[1-2 lines: what they do, insider details if relevant - why this is a good opportunity]
+[1-2 lines: what they do, key details - why this could work for you]
 [1-2 lines: what the role is, what kind of candidate they need]
 Website: [company website URL]
 Job: [FULL JOB POSTING LINK]
@@ -205,17 +205,17 @@ Job: [FULL JOB POSTING LINK]
 
 [Optional 1-2 sentence closer about the opportunity]
 
-[Final question - casual, genuine timezone suggestion. For GMT: "Free for a quick call around 3pm your time this week?"]
+[Final question - straightforward. For GMT: "Would you be open to a quick call around 3pm your time this week?"]
 
 CRITICAL RULES:
 1. INCLUDE BOTH website URL AND full job posting link for each company
 2. Frame this as recruitment OPPORTUNITIES for the recruiter - they're finding candidates to fill these roles
-3. No marketing speak: no "innovative", "cutting-edge", "dynamic", etc.
-4. Sound like a human - contractions OK, casual language is good
+3. No marketing speak: no "innovative", "cutting-edge", "dynamic", "exciting", etc.
+4. Sound natural - contractions are fine, but keep it grounded
 5. Each company: 4-6 lines max
 6. Opening: 1-2 lines only
 7. No signature, no closing lines after the question
-8. Use insider intelligence naturally - weave in specific data if available
+8. Use company details naturally - stick to facts about what they do
 9. Company descriptions are FACTUAL - what they do, their market position
 
 You are: {sender_name} ({sender_email})
