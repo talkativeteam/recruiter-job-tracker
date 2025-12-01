@@ -57,7 +57,8 @@ MAX_COMPANY_SIZE = 100  # employees
 
 # LinkedIn search parameters
 LINKEDIN_BASE_URL = "https://www.linkedin.com/jobs/search/"
-LINKEDIN_TIME_FILTER = "r604800"  # Last 7 days
+LINKEDIN_TIME_FILTER_24H = "r86400"  # Last 24 hours (default - fresher results)
+LINKEDIN_TIME_FILTER_7D = "r604800"  # Last 7 days (fallback if 24h has insufficient results)
 LINKEDIN_JOB_TYPE = "F"  # Full-time
 
 # Logging configuration

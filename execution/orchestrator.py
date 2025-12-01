@@ -112,16 +112,31 @@ class Orchestrator:
             print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 100)} max)...")
             scraper = ApifyLinkedInScraper(run_id=self.run_id)
             
-            # Build LinkedIn search URL (UK-based, Software industry, past week)
-            linkedin_url = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r604800"
-            
             # Apify requires minimum 100 jobs
             jobs_to_scrape = max(100, validated.get('max_jobs_to_scrape', 100))
+            minimum_acceptable_jobs = max(50, int(jobs_to_scrape * 0.5))  # At least 50% or 50 jobs
+            
+            # Try 24 hours first (fresher results)
+            print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
+            linkedin_url_24h = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r86400"
             
             self.jobs_scraped = scraper.scrape_jobs(
-                linkedin_url=linkedin_url,
+                linkedin_url=linkedin_url_24h,
                 max_jobs=jobs_to_scrape
             )
+            
+            # If insufficient results, fallback to 7 days
+            if len(self.jobs_scraped) < minimum_acceptable_jobs:
+                print(f"⚠️ Only {len(self.jobs_scraped)} jobs found in 24h (need {minimum_acceptable_jobs})")
+                print(f"🔄 Attempt 2: Retrying with past 7 days (r604800)...")
+                linkedin_url_7d = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r604800"
+                
+                self.jobs_scraped = scraper.scrape_jobs(
+                    linkedin_url=linkedin_url_7d,
+                    max_jobs=jobs_to_scrape
+                )
+            else:
+                print(f"✅ Got {len(self.jobs_scraped)} jobs in 24h - using fresh results")
             
             self.stats["total_jobs_scraped"] = len(self.jobs_scraped)
             print(f"✅ Scraped {len(self.jobs_scraped)} jobs from LinkedIn")
