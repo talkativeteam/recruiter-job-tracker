@@ -560,18 +560,12 @@ class Orchestrator:
             
             print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
             
-            # Take top 4 companies from Exa results
-            top_companies = exa_companies[:4]
-            self.stats["data_source"] = "exa_direct"
-            self.stats["final_companies_selected"] = len(top_companies)
-            print(f"✅ Selected top {len(top_companies)} companies from Exa\n")
-            
-            # Phase 8: Enrich Company Intelligence (World-Class Playwright)
-            print("🧠 Phase 8: Enriching company intelligence...")
+            # Phase 8: Enrich ALL Companies with World-Class Playwright (BEFORE selecting top 4)
+            print(f"🧠 Phase 8: Enriching ALL {len(exa_companies)} companies with Playwright intelligence...")
             enricher = CompanyIntelligence()
             
             companies_for_enrichment = []
-            for company in top_companies:
+            for company in exa_companies:
                 companies_for_enrichment.append({
                     "company_name": company["name"],
                     "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
@@ -582,9 +576,32 @@ class Orchestrator:
             try:
                 enriched_companies = enricher.enrich_companies(companies_for_enrichment)
                 print(f"✅ Enriched {len(enriched_companies)} companies with deep intelligence")
+                
+                # Map enrichment back to exa_companies and add relevance scores
+                for i, company in enumerate(exa_companies):
+                    if i < len(enriched_companies):
+                        company["enrichment"] = enriched_companies[i]
+                        company["relevance_score"] = enriched_companies[i].get("relevance_score", 0)
+                    else:
+                        company["enrichment"] = {}
+                        company["relevance_score"] = 0
+                
+                # NOW select top 4 based on enrichment relevance scores
+                exa_companies_sorted = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
+                top_companies = exa_companies_sorted[:4]
+                print(f"✅ Selected top {len(top_companies)} companies based on enrichment scores")
+                
+                # Use enriched data for rest of pipeline
+                enriched_companies = [c["enrichment"] for c in top_companies]
+                
             except Exception as e:
                 print(f"⚠️ Company enrichment failed: {e}")
-                enriched_companies = companies_for_enrichment
+                # Fallback: take first 4 without enrichment
+                top_companies = exa_companies[:4]
+                enriched_companies = companies_for_enrichment[:4]
+            
+            self.stats["data_source"] = "exa_direct"
+            self.stats["final_companies_selected"] = len(top_companies)
             
             # Phase 8.5: Find Decision Makers
             print("👤 Phase 8.5: Finding decision makers...")
