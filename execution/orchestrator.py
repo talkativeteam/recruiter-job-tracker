@@ -287,8 +287,8 @@ class Orchestrator:
                 "outreach_email": ""
             }
             
-            if self.logger:
-                self.logger.log_error(self.run_id, str(e))
+            if self.logger and self.run_id:
+                self.logger.mark_failed(self.run_id, str(e), "pipeline")
             
             return error_result
 
