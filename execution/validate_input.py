@@ -20,9 +20,17 @@ class InputValidator:
         self.required_fields = ["client_name", "client_email", "client_website", "email_sender_name", "email_sender_address"]
         self.optional_fields = ["max_jobs_to_scrape", "callback_webhook_url", "email_thread", "recruiter_timezone"]
     
+    def normalize_url(self, url: str) -> str:
+        """Add https:// if URL missing scheme"""
+        url = url.strip()
+        if not url.startswith(("http://", "https://", "ftp://")):
+            url = "https://" + url
+        return url
+    
     def validate_url(self, url: str) -> bool:
         """Validate URL format"""
         try:
+            url = self.normalize_url(url)
             result = urlparse(url)
             return all([result.scheme, result.netloc])
         except Exception:
@@ -75,12 +83,12 @@ class InputValidator:
         validated_data = {
             "client_name": input_data["client_name"].strip(),
             "client_email": input_data["client_email"].strip().lower(),
-            "client_website": input_data["client_website"].strip(),
+            "client_website": self.normalize_url(input_data["client_website"]),
             "email_sender_name": input_data["email_sender_name"].strip(),
             "email_sender_address": input_data["email_sender_address"].strip().lower(),
             "email_thread": input_data.get("email_thread", "").strip(),
             "max_jobs_to_scrape": max_jobs,
-            "callback_webhook_url": callback_url.strip() if callback_url else None
+            "callback_webhook_url": self.normalize_url(callback_url) if callback_url else None
         }
         
         return True, "", validated_data
