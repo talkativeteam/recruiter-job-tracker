@@ -230,14 +230,25 @@ class Orchestrator:
             print("🔍 Finding decision makers for each company...")
             dm_finder = DecisionMakerFinder(run_id=self.run_id)
             
-            # Format companies for decision maker search (use correct field names)
+            # Format companies for decision maker search
+            # Normalize job fields to match DecisionMakerFinder expectations
             companies_for_dm = []
             for company in top_companies:
+                # Normalize jobs - LinkedIn uses different field names
+                normalized_jobs = []
+                for job in company.get("jobs", []):
+                    normalized_job = {
+                        "job_title": job.get("positionTitle") or job.get("title") or job.get("name") or "Unknown",
+                        "description": job.get("description", "")
+                    }
+                    normalized_jobs.append(normalized_job)
+                
                 companies_for_dm.append({
                     "company_name": company.get("name", ""),
                     "company_website": company.get("company_url", ""),
                     "company_description": company.get("description", ""),
-                    "jobs": company.get("jobs", [])
+                    "employee_count": company.get("employee_count", 50),
+                    "jobs": normalized_jobs
                 })
             
             # Find decision makers
