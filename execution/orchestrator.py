@@ -118,6 +118,11 @@ class Orchestrator:
             
             print(f"✅ ICP extracted: {json.dumps(self.recruiter_icp, indent=2)}")
             
+            # 🔀 ROUTING: Check if we should skip LinkedIn and go directly to Exa
+            if not validated.get("linkedin_plus_exa", True):
+                print("\n🚀 DIRECT EXA MODE: Skipping LinkedIn, going straight to Exa...")
+                return self._run_exa_direct_pipeline(validated)
+            
             # Phase 3: Generate Boolean Search Query
             print("🔍 Phase 3: Generating Boolean search query...")
             boolean_prompt = ai_prompts.format_boolean_search_prompt(self.recruiter_icp)
@@ -535,4 +540,149 @@ class Orchestrator:
                 self.logger.mark_failed(self.run_id, str(e), "pipeline")
             
             return error_result
+    
+    def _run_exa_direct_pipeline(self, validated: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Exa-Direct Mode: Skip LinkedIn entirely and go straight to Exa
+        Used when linkedin_plus_exa=false in input JSON
+        """
+        try:
+            # Phase 3-7 (Exa): Find companies using Exa
+            print("🔍 Phase 3-7 (Exa Direct): Finding ICP-matching companies...")
+            from execution.call_apify_linkedin_scraper import call_exa_find_companies
+            
+            exa_companies = call_exa_find_companies(
+                recruiter_icp=self.recruiter_icp,
+                run_id=self.run_id
+            )
+            
+            if not exa_companies or len(exa_companies) == 0:
+                raise Exception("No companies found via Exa direct mode.")
+            
+            print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
+            
+            # Take top 4 companies from Exa results
+            top_companies = exa_companies[:4]
+            self.stats["data_source"] = "exa_direct"
+            self.stats["final_companies_selected"] = len(top_companies)
+            print(f"✅ Selected top {len(top_companies)} companies from Exa\n")
+            
+            # Phase 8: Enrich Company Intelligence (World-Class Playwright)
+            print("🧠 Phase 8: Enriching company intelligence...")
+            enricher = CompanyIntelligence()
+            
+            companies_for_enrichment = []
+            for company in top_companies:
+                companies_for_enrichment.append({
+                    "company_name": company["name"],
+                    "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                    "company_description": company.get("description", ""),
+                    "employee_count": company.get("employee_count", 0)
+                })
+            
+            try:
+                enriched_companies = enricher.enrich_companies(companies_for_enrichment)
+                print(f"✅ Enriched {len(enriched_companies)} companies with deep intelligence")
+            except Exception as e:
+                print(f"⚠️ Company enrichment failed: {e}")
+                enriched_companies = companies_for_enrichment
+            
+            # Phase 8.5: Find Decision Makers
+            print("👤 Phase 8.5: Finding decision makers...")
+            contact_finder = ContactFinder(run_id=self.run_id)
+            
+            verified_companies = []
+            for idx, company_data in enumerate(enriched_companies):
+                try:
+                    contact_info = contact_finder.find_contact(
+                        company_name=company_data["company_name"],
+                        company_website=company_data["company_website"],
+                        target_roles=self.recruiter_icp.get("roles", []),
+                        icp_data=self.recruiter_icp
+                    )
+                    
+                    verified_companies.append({
+                        "company_name": company_data["company_name"],
+                        "company_website": company_data["company_website"],
+                        "company_description": company_data.get("company_description", ""),
+                        "contact_person": contact_info.get("name", "Hiring Manager"),
+                        "contact_title": contact_info.get("title", ""),
+                        "contact_linkedin": contact_info.get("linkedin_url", ""),
+                        "company_intel": company_data.get("analysis", ""),
+                        "relevance_score": company_data.get("relevance_score", 0)
+                    })
+                except Exception as e:
+                    print(f"  ⚠️ Contact finding failed for {company_data['company_name']}: {e}")
+            
+            if not verified_companies:
+                raise Exception("No companies with valid contacts found")
+            
+            print(f"✅ Found contacts for {len(verified_companies)} companies")
+            
+            # Phase 9: Generate Outreach Email
+            print("📧 Phase 9: Generating personalized outreach email...")
+            email_generator = OutreachEmailGenerator(run_id=self.run_id)
+            
+            outreach_email = email_generator.generate_email(
+                recruiter_name=validated.get("client_name", "there"),
+                recruiter_email=validated.get("client_email", ""),
+                companies=verified_companies,
+                icp_summary=self.recruiter_icp
+            )
+            
+            print(f"✅ Generated outreach email ({len(outreach_email)} characters)")
+            
+            # Phase 10: Send Response
+            print("📤 Phase 10: Sending response...")
+            response_sender = WebhookResponseSender(run_id=self.run_id)
+            
+            final_output = {
+                "run_metadata": {
+                    "run_id": self.run_id,
+                    "status": "success",
+                    "pipeline_version": "exa-direct-mode",
+                    "data_source": "exa_direct"
+                },
+                "input": self.validated_input,
+                "recruiter_icp": self.recruiter_icp,
+                "stats": self.stats,
+                "verified_companies": verified_companies,
+                "outreach_email": outreach_email
+            }
+            
+            webhook_url = validated.get("callback_webhook_url")
+            if webhook_url:
+                response_sender.send_webhook(webhook_url, final_output)
+                print(f"✅ Sent response to webhook: {webhook_url}")
+            
+            if self.logger and self.run_id:
+                self.logger.mark_completed(self.run_id, final_output)
+            
+            print("\n🎉 EXA-DIRECT PIPELINE COMPLETE!")
+            return final_output
+            
+        except Exception as e:
+            print(f"❌ Exa-direct pipeline failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            error_result = {
+                "run_metadata": {
+                    "run_id": self.run_id,
+                    "status": "failed",
+                    "error": str(e),
+                    "pipeline_version": "exa-direct-mode"
+                },
+                "input": self.validated_input,
+                "recruiter_icp": self.recruiter_icp,
+                "stats": self.stats,
+                "verified_companies": [],
+                "outreach_email": ""
+            }
+            
+            if self.logger and self.run_id:
+                self.logger.mark_failed(self.run_id, str(e), "exa-direct-pipeline")
+            
+            return error_result
+
 

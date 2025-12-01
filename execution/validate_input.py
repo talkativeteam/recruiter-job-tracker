@@ -18,7 +18,7 @@ from execution.supabase_logger import SupabaseLogger
 class InputValidator:
     def __init__(self):
         self.required_fields = ["client_name", "client_email", "client_website", "max_jobs_to_scrape"]
-        self.optional_fields = ["email_sender_name", "email_sender_address", "callback_webhook_url", "email_thread", "recruiter_timezone"]
+        self.optional_fields = ["email_sender_name", "email_sender_address", "callback_webhook_url", "email_thread", "recruiter_timezone", "linkedin_plus_exa"]
     
     def normalize_url(self, url: str) -> str:
         """Add https:// if URL missing scheme"""
@@ -90,7 +90,8 @@ class InputValidator:
             "email_thread": input_data.get("email_thread", "").strip(),
             "max_jobs_to_scrape": max_jobs,
             "callback_webhook_url": self.normalize_url(callback_url) if callback_url else None,
-            "recruiter_timezone": input_data.get("recruiter_timezone", "UTC")
+            "recruiter_timezone": input_data.get("recruiter_timezone", "UTC"),
+            "linkedin_plus_exa": input_data.get("linkedin_plus_exa", True)  # Default: use LinkedIn + Exa fallback
         }
         
         return True, "", validated_data
