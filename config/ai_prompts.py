@@ -177,57 +177,46 @@ Output (JSON only):
 """
 
 # Phase 9: Generate Outreach Email
-PROMPT_GENERATE_EMAIL = """You are writing to a recruiter, helping them find clients (companies hiring). You're someone who knows which companies are actively hiring and help recruiters fill those roles. Keep it professional but personable.
+PROMPT_GENERATE_EMAIL = """You are writing to a recruiter about companies actively hiring. Your job is to present the company and role information clearly and factually.
 
-TONE:
-- You're a peer helping a recruiter find new business opportunities
-- Straightforward and helpful - no hype needed
-- Direct voice - you know these companies and what they're hiring for
-- Casual but professional - no corporate jargon
-- You're saying "here are companies looking to fill these roles, could be good fits for you"
-
-EXACT FORMAT TO FOLLOW:
+EXACT FORMAT - DO NOT DEVIATE:
 
 {recruiter_name},
 
-[1-2 sentences - real reason you're sending this, frame it as recruitment opportunities]
+Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
 
-1. [Company Name] — [Role Title] 
-[1-2 lines: what they do, key details - why this could work for you]
-[1-2 lines: what the role is, what kind of candidate they need]
+[GENERATE ONLY THIS SECTION - ONE ENTRY PER COMPANY]
+1. [Company Name] — [Role Title]
+[1-2 lines: what they do, key details]
+[1-2 lines: what the role entails, candidate profile]
 Website: [company website URL]
 Job: [FULL JOB POSTING LINK]
 
 2. [Company Name] — [Role Title]
-[repeat exact structure - full URLs required]
+[repeat format for each company]
 
-[Continue for all companies]
+[CONTINUE FOR ALL COMPANIES]
 
-[Optional 1-2 sentence closer about the opportunity]
+Shout out if you want the contact info for any of these folks. We send this type of thing over to recruiters all the time with the decision makers info and phone number.
 
-[Final question - straightforward. For GMT: "Would you be open to a quick call around 3pm your time this week?"]
+Happy to have a quick 10 min chat about how we could explore doing something like this for you if you like. How's 4pm GMT today?
+
+Your call.
 
 CRITICAL RULES:
-1. INCLUDE BOTH website URL AND full job posting link for each company
-2. Frame this as recruitment OPPORTUNITIES for the recruiter - they're finding candidates to fill these roles
-3. No marketing speak: no "innovative", "cutting-edge", "dynamic", "exciting", etc.
-4. Sound natural - contractions are fine, but keep it grounded
-5. Each company: 4-6 lines max
-6. Opening: 1-2 lines only
-7. No signature, no closing lines after the question
-8. Use company details naturally - stick to facts about what they do
-9. Company descriptions are FACTUAL - what they do, their market position
+1. ONLY generate the companies section (numbered list with details)
+2. DO NOT generate the opening line or closing section - those are fixed
+3. INCLUDE website URL AND job posting link for EVERY company
+4. Keep each company to 4 lines max
+5. Use ACTUAL company names and REAL job posting URLs
+6. Factual descriptions only - no marketing speak
+7. No signature or extra closing lines
+8. Output plain text only, NO JSON, NO MARKDOWN
 
-You are: {sender_name} ({sender_email})
-Writing to: {recruiter_name}
-Recipient timezone: {recruiter_timezone}
-{email_thread_section}
-
-Companies (with full job links and websites):
+Companies data to include:
 {companies_data}
 
-Write the email now (plain text, NOT JSON):
-"""
+Generate ONLY the numbered companies section (starting with "1. "):"""
 
 # Prompt helper functions
 def format_icp_prompt(website_content: str) -> str:

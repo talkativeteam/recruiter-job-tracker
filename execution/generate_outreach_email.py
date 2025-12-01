@@ -59,7 +59,7 @@ class EmailGenerator:
                        decision_makers: List[Dict[str, Any]],
                        recruiter_data: Dict[str, Any]) -> str:
         """
-        Generate personalized outreach email
+        Generate personalized outreach email with fixed template
         """
         print("✉️ Generating outreach email...")
         
@@ -86,7 +86,7 @@ class EmailGenerator:
         
         # Use existing OpenAICaller.generate_email() method with sender info
         print("🤖 Using gpt-4-turbo-preview for premium outreach quality...")
-        email = self.openai_caller.generate_email(
+        companies_section = self.openai_caller.generate_email(
             recruiter_name=recruiter_data.get("client_name", "there"),
             companies_data=companies_list,
             sender_name=recruiter_data.get("email_sender_name", "Your Name"),
@@ -95,8 +95,23 @@ class EmailGenerator:
             recruiter_timezone=recruiter_data.get("recruiter_timezone", "GMT")
         )
         
-        if not email:
+        if not companies_section:
             raise Exception("Failed to generate email")
+        
+        # Wrap AI output with fixed template
+        recruiter_name = recruiter_data.get("client_name", "there").split()[0]  # First name only
+        email = f"""{recruiter_name},
+
+Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
+
+{companies_section}
+
+Shout out if you want the contact info for any of these folks. We send this type of thing over to recruiters all the time with the decision makers info and phone number.
+
+Happy to have a quick 10 min chat about how we could explore doing something like this for you if you like. How's 4pm GMT today?
+
+Your call."""
+        
         
         # Validate word count
         word_count = len(email.split())
