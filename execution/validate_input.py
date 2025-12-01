@@ -56,6 +56,13 @@ class InputValidator:
         
         # Validate max_jobs_to_scrape (if provided)
         max_jobs = input_data.get("max_jobs_to_scrape", 50)
+        # Convert string to int if needed
+        if isinstance(max_jobs, str):
+            try:
+                max_jobs = int(max_jobs)
+            except ValueError:
+                return False, f"max_jobs_to_scrape must be a number, got: {max_jobs}", {}
+        
         if not isinstance(max_jobs, int) or max_jobs < 1 or max_jobs > 100:
             return False, f"max_jobs_to_scrape must be between 1 and 100, got: {max_jobs}", {}
         
