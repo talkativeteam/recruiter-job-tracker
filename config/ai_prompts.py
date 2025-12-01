@@ -73,59 +73,64 @@ Examples:
 """
 
 # Phase 3: Generate Boolean Search
-PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a BROAD, INCLUSIVE Boolean search that casts a wide net to find relevant roles.
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create MASSIVE quoted boolean searches with 15-25 role variations.
 
-STRATEGY: Pull in 100+ jobs from LinkedIn and let the AI validation layer filter them down. Better to have false positives than miss good opportunities.
+CRITICAL STRATEGY: Use quotes around each role title to create 15-25 variations, let AI validation filter.
 
-Rules for BROAD searches:
-1. Use role keywords WITHOUT quotes (quotes = exact match only, too restrictive)
-2. Include many role variations and related titles using OR
-3. Include different seniority levels (junior, mid, senior, director, VP)
-4. Add industry context ONLY if highly specific (medical devices, fintech, etc.)
-5. Focus on ROLE TYPES not exact titles
+FALLBACK STRATEGY:
+1. Try 24 hours: Massive boolean with 15-25 quoted variations
+2. Try 7 days: Same boolean, longer timeframe
+3. Fall back to Exa: If LinkedIn returns too few jobs (< 5)
 
-Examples of GOOD (broad) searches:
-- Bad: "Product Manager" (too narrow, exact match only)
-- Good: Product Manager OR Product Lead OR Product Owner OR PM (catches variations)
+BOOLEAN SEARCH RULES (USE QUOTES):
+1. Use quotes around EVERY role title: "VP of Sales" OR "Sales Director" OR "Head of Sales"
+2. Generate 15-25 role variations minimum (more is better)
+3. Include ALL seniority levels:
+   - Entry/Mid: "Sales Manager", "Senior Sales Manager", "Associate Sales Director"
+   - Director: "Sales Director", "Director of Sales", "Senior Sales Director"
+   - VP: "VP Sales", "Vice President of Sales", "VP of Sales", "SVP Sales"
+   - C-Suite: "Chief Revenue Officer", "Chief Sales Officer", "CRO", "CSO"
+4. Include different wordings of same role:
+   - "VP of Sales" vs "Vice President Sales" vs "VP Sales" vs "Sales VP"
+   - "Sales Director" vs "Director of Sales" vs "Director, Sales"
+5. Include adjacent/related roles:
+   - Sales: "Revenue Director", "Head of Revenue", "Account Director", "Business Development Director"
+   - Marketing: "Brand Director", "Growth Director", "Creative Director", "Digital Director"
+   - Engineering: "Technical Director", "Head of Engineering", "Engineering Lead", "Platform Director"
 
-- Bad: "Senior Network Engineer" AND "SaaS"
-- Good: Network Engineer OR Infrastructure Engineer OR Systems Engineer OR Network Admin OR IT Engineer
-
-- Bad: "Director of Sales" AND ("digital agency" OR "creative agency")
-- Good: Sales Director OR VP Sales OR Head of Sales OR Sales Leader OR Chief Revenue Officer OR Sales Manager
-
-CRITICAL APPROACH:
-1. List 8-15 role variations (different titles for same function)
-2. Include adjacent roles (Marketing Manager → Brand Manager, Communications Manager)
-3. Include seniority variations (Manager, Senior Manager, Director, Senior Director, VP)
-4. NO quotes unless searching for very specific technical terms
-5. Let the AI validation layer (Phase 7.5) filter for ICP fit
+INDUSTRY FILTER RULES (ALMOST NEVER USE):
+- DO NOT add industry filter in 95% of cases
+- ONLY use if EXTREMELY niche AND absolutely critical:
+  - Acceptable: "medical devices", "pharmaceutical", "semiconductor", "aerospace defense"
+  - NOT acceptable: technology, software, marketing, sales, finance, consulting, creative, digital, SaaS
+- When in doubt, NEVER use industry filter - let AI validation handle it
 
 ICP Data:
 {icp_data}
 
 Your task:
-1. Identify the CORE FUNCTION from roles_hiring (e.g., "Sales", "Marketing", "Engineering")
-2. Generate 10-15 related job title variations
-3. Include all seniority levels that match the recruiter's target
-4. Create broad boolean with OR between all variations
-5. Only add industry filter if it's highly specific (NOT for "technology" or "software")
+1. Identify core function from roles (Sales, Marketing, Engineering, etc.)
+2. Generate 15-25 quoted role variations
+3. Include different wordings: "VP of X" vs "Vice President X" vs "VP X"
+4. Include all seniority levels: Manager → Director → VP → Chief Officer
+5. Include adjacent roles in the same function
+6. NO industry filter unless extremely niche (medical devices, pharma, aerospace)
 
-Examples based on ICP:
+Examples:
 
-If roles = ["VP of Sales", "Sales Director"]:
-Boolean: VP Sales OR Vice President Sales OR SVP Sales OR Sales Director OR Director of Sales OR Head of Sales OR Chief Revenue Officer OR Sales Leader OR Senior Sales Director
+Medical Device Sales (NO INDUSTRY FILTER - let AI validate):
+"VP of Sales" OR "Vice President Sales" OR "SVP Sales" OR "Sales Director" OR "Director of Sales" OR "Head of Sales" OR "Chief Revenue Officer" OR "CRO" OR "Revenue Director" OR "VP Revenue" OR "Vice President of Revenue" OR "Senior Sales Director" OR "Sales VP" OR "Head of Revenue" OR "Chief Sales Officer" OR "CSO" OR "Senior VP Sales" OR "Executive VP Sales" OR "VP of Business Development" OR "Business Development Director"
 
-If roles = ["Network Engineer", "Infrastructure Engineer"]:
-Boolean: Network Engineer OR Infrastructure Engineer OR Systems Engineer OR IT Engineer OR Network Administrator OR Senior Network Engineer OR Lead Network Engineer OR Network Architect
+Creative Agency Marketing (NO INDUSTRY FILTER):
+"Chief Marketing Officer" OR "CMO" OR "VP Marketing" OR "Vice President Marketing" OR "VP of Marketing" OR "Marketing Director" OR "Director of Marketing" OR "Head of Marketing" OR "Senior Marketing Director" OR "Marketing VP" OR "Brand Director" OR "Director of Brand" OR "Head of Brand" OR "Creative Director" OR "Head of Creative" OR "Chief Brand Officer" OR "VP Brand" OR "Growth Director" OR "Head of Growth" OR "VP Growth" OR "Digital Director" OR "Director of Digital" OR "Marketing Leader"
 
-If roles = ["Marketing Manager"] in "Medical Device" companies:
-Boolean: (Marketing Manager OR Senior Marketing Manager OR Marketing Director OR Brand Manager OR Product Marketing Manager OR Marketing Lead) AND (medical device OR medical technology OR healthcare technology OR medtech)
+Tech Engineering (NO INDUSTRY FILTER):
+"CTO" OR "Chief Technology Officer" OR "VP Engineering" OR "Vice President Engineering" OR "VP of Engineering" OR "Engineering Director" OR "Director of Engineering" OR "Head of Engineering" OR "Senior Engineering Director" OR "Engineering VP" OR "Technical Director" OR "Director of Technology" OR "Head of Technology" OR "SVP Engineering" OR "Chief Technical Officer" OR "Engineering Leader" OR "Platform Director" OR "VP of Product Engineering" OR "VP Platform" OR "Head of Platform"
 
 Output (JSON only):
 {{{{
-  "boolean_search": "broad search with many ORs",
-  "rationale": "Why this search is broad enough"
+  "boolean_search": "\"role1\" OR \"role2\" OR \"role3\"...",
+  "rationale": "20 variations covering all seniority levels"
 }}}}
 """
 
