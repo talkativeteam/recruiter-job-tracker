@@ -20,6 +20,7 @@ from execution.filter_companies import CompanyFilter
 from execution.prioritize_companies import CompanyPrioritizer
 from execution.enrich_company_intel import CompanyIntelligence
 from execution.generate_outreach_email import EmailGenerator
+from execution.find_contact_person import DecisionMakerFinder
 from execution.supabase_logger import SupabaseLogger
 from execution.send_webhook_response import send_webhook
 from config import ai_prompts
@@ -225,23 +226,29 @@ class Orchestrator:
             print("📧 Phase 9: Generating personalized outreach email...")
             email_generator = EmailGenerator(run_id=self.run_id)
             
-            # Format companies data for email
-            companies_data = [
-                {
-                    "name": c["name"],
-                    "description": c.get("description", ""),
-                    "jobs": c.get("jobs", []),
-                    "enrichment": c.get("enrichment", {}),
-                    "website": c.get("company_url", "")
-                }
-                for c in top_companies
-            ]
+            # Phase 8.5: Find Decision Makers (Contact Extraction)
+            print("🔍 Finding decision makers for each company...")
+            dm_finder = DecisionMakerFinder(run_id=self.run_id)
             
-            # Generate email
-            self.outreach_email = email_generator.generate_email(
-                recruiter_input=validated,
-                companies=companies_data,
-                recruiter_icp=self.recruiter_icp
+            # Format companies for decision maker search (use correct field names)
+            companies_for_dm = []
+            for company in top_companies:
+                companies_for_dm.append({
+                    "company_name": company.get("name", ""),
+                    "company_website": company.get("company_url", ""),
+                    "company_description": company.get("description", ""),
+                    "jobs": company.get("jobs", [])
+                })
+            
+            # Find decision makers
+            decision_makers = dm_finder.find_decision_makers(companies_for_dm)
+            print(f"✅ Found decision makers for {len(decision_makers)} companies")
+            
+            # Generate email with decision makers
+            self.outreach_email = email_generator.generate_email_content(
+                companies=companies_for_dm,
+                decision_makers=decision_makers,
+                recruiter_data=validated
             )
             
             print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
