@@ -128,10 +128,14 @@ Return format:
             result = json.loads(response)
             jobs = result.get("jobs", [])
             
-            # Filter out invalid jobs
+            # Filter out invalid jobs - ONLY keep jobs with valid URLs
             valid_jobs = []
             for job in jobs:
                 if job.get("job_title") and len(job.get("job_title", "")) > 3:
+                    job_url = job.get("job_url", "")
+                    # Skip jobs with mailto: URLs or no URL at all
+                    if not job_url or job_url.startswith("mailto:") or not job_url.startswith("http"):
+                        continue  # Don't include this job
                     valid_jobs.append(job)
             
             return valid_jobs
