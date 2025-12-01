@@ -440,8 +440,7 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
                 'company_website': company['company_website'],
                 'employee_count': company.get('employee_count', 'Unknown'),
                 'company_description': company.get('company_description', ''),
-                'insider_intelligence': company.get('insider_intelligence'),
-                'decision_maker': company.get('decision_maker')  # Add decision maker data
+                'insider_intelligence': company.get('insider_intelligence')
             })
         
         # Add all roles from this entry
@@ -454,13 +453,6 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
         companies_text += f"  Name: {company['company_name']}\n"
         companies_text += f"  Website: {company['company_website']}\n"
         companies_text += f"  Employee Count: {company['employee_count']}\n"
-        
-        # Add decision maker if found
-        if company.get('decision_maker'):
-            dm = company['decision_maker']
-            companies_text += f"  Decision Maker: {dm.get('name', 'Unknown')} - {dm.get('title', 'Unknown')}\n"
-            if dm.get('linkedin_url'):
-                companies_text += f"  LinkedIn: {dm['linkedin_url']}\n"
         
         # Add insider intelligence if available
         if company['insider_intelligence']:

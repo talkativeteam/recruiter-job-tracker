@@ -20,7 +20,6 @@ from execution.filter_companies import CompanyFilter
 from execution.prioritize_companies import CompanyPrioritizer
 from execution.enrich_company_intel import CompanyIntelligence
 from execution.generate_outreach_email import EmailGenerator
-from execution.find_contact_person import DecisionMakerFinder
 from execution.supabase_logger import SupabaseLogger
 from execution.send_webhook_response import send_webhook
 from execution.call_exa_api import ExaCompanyFinder
@@ -421,35 +420,6 @@ class Orchestrator:
             print("📧 Phase 9: Generating personalized outreach email...")
             email_generator = EmailGenerator(run_id=self.run_id)
             
-            # Phase 8.5: Find Decision Makers (Contact Extraction)
-            print("🔍 Finding decision makers for each company...")
-            dm_finder = DecisionMakerFinder(run_id=self.run_id)
-            
-            # Format companies for decision maker search
-            # Normalize job fields to match DecisionMakerFinder expectations (needs job_title only)
-            companies_for_dm = []
-            for company in top_companies:
-                # Normalize jobs - LinkedIn uses different field names
-                normalized_jobs = []
-                for job in company.get("jobs", []):
-                    normalized_job = {
-                        "job_title": job.get("title") or job.get("positionTitle") or job.get("name") or "Unknown",
-                        "description": job.get("descriptionText") or job.get("description", "")
-                    }
-                    normalized_jobs.append(normalized_job)
-                
-                companies_for_dm.append({
-                    "company_name": company.get("name", ""),
-                    "company_website": company.get("company_url", ""),
-                    "company_description": company.get("description", ""),
-                    "employee_count": company.get("employee_count", 50),
-                    "jobs": normalized_jobs
-                })
-            
-            # Find decision makers
-            decision_makers = dm_finder.find_decision_makers(companies_for_dm)
-            print(f"✅ Found decision makers for {len(decision_makers)} companies")
-            
             # Format companies for email generator (needs full job data with URLs)
             companies_for_email = []
             for company in top_companies:
@@ -638,43 +608,16 @@ class Orchestrator:
             self.stats["data_source"] = "exa_direct"
             self.stats["final_companies_selected"] = len(top_companies)
             
-            # Phase 8.5: Find Decision Makers
-            print("👤 Phase 8.5: Finding decision makers...")
-            dm_finder = DecisionMakerFinder(run_id=self.run_id)
-            
-            # Format companies for decision maker search (Exa companies don't have jobs field)
-            companies_for_dm = []
+            # Format companies for email
+            verified_companies = []
             for company_data in enriched_companies:
-                companies_for_dm.append({
+                verified_companies.append({
                     "company_name": company_data["company_name"],
                     "company_website": company_data["company_website"],
                     "company_description": company_data.get("company_description", ""),
-                    "employee_count": company_data.get("employee_count", 50),
-                    "jobs": []  # Exa direct mode has no jobs, DM finder will use general search
+                    "company_intel": company_data.get("insider_intelligence", {}),
+                    "relevance_score": company_data.get("relevance_score", 0)
                 })
-            
-            # Find decision makers
-            decision_makers = dm_finder.find_decision_makers(companies_for_dm)
-            
-            # Map decision makers back to companies
-            verified_companies = []
-            for idx, dm_result in enumerate(decision_makers):
-                if idx < len(enriched_companies):
-                    verified_companies.append({
-                        "company_name": dm_result.get("company_name", enriched_companies[idx]["company_name"]),
-                        "company_website": dm_result.get("company_website", enriched_companies[idx]["company_website"]),
-                        "company_description": enriched_companies[idx].get("company_description", ""),
-                        "contact_person": dm_result.get("contact_name", "Hiring Manager"),
-                        "contact_title": dm_result.get("contact_title", ""),
-                        "contact_linkedin": dm_result.get("contact_linkedin", ""),
-                        "company_intel": enriched_companies[idx].get("insider_intelligence", {}),
-                        "relevance_score": enriched_companies[idx].get("relevance_score", 0)
-                    })
-            
-            if not verified_companies:
-                raise Exception("No companies with valid contacts found")
-            
-            print(f"✅ Found contacts for {len(verified_companies)} companies")
             
             # Phase 9: Generate Outreach Email
             print("📧 Phase 9: Generating personalized outreach email...")
