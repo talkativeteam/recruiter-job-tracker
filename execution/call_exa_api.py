@@ -74,11 +74,24 @@ class ExaCompanyFinder:
     def get_cost_estimate(self) -> float:
         """
         Calculate Exa API cost
-        Pricing: $5 per 1000 searches with contents
+        
+        Exa Pricing (search_and_contents):
+        - Search: 1 credit per search
+        - Contents: 1 credit per result with text extraction
+        - Rate: $5 per 1000 credits
+        
+        So for 20 results with contents:
+        - 1 search = 1 credit
+        - 20 results × 1 credit each = 20 credits
+        - Total: 21 credits per search = $0.105
+        
         Reference: https://docs.exa.ai/reference/pricing
         """
-        cost_per_search = 0.005  # $5 per 1000 searches = $0.005 per search
-        return self.search_count * cost_per_search
+        # Each search with contents costs: 1 search + num_results contents
+        # We fetch 20 results per search, so: 1 + 20 = 21 credits per search
+        credits_per_search = 21  # 1 for search + 20 for content extraction
+        cost_per_credit = 0.005  # $5 per 1000 credits
+        return self.search_count * credits_per_search * cost_per_credit
     
     def _build_exa_criteria(self, icp_data: Dict[str, Any]) -> str:
         """
