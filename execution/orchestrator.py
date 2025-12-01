@@ -175,11 +175,11 @@ class Orchestrator:
             # Phase 7: Prioritize Top Companies
             print("⭐ Phase 7: Prioritizing top companies...")
             prioritizer = CompanyPrioritizer(run_id=self.run_id)
-            top_companies = prioritizer.prioritize_companies(
+            top_companies = prioritizer.select_top_n(
                 companies=filtered_companies,
-                recruiter_icp=self.recruiter_icp,
-                max_companies=4
-            )[:4]
+                n=4,
+                icp_data=self.recruiter_icp
+            )
             
             self.stats["final_companies_selected"] = len(top_companies)
             print(f"✅ Selected top {len(top_companies)} companies")
