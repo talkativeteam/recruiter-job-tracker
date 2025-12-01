@@ -300,31 +300,32 @@ class Orchestrator:
             self.stats["companies_validated"] = len(filtered_companies)
             print(f"✅ Validated {len(filtered_companies)} direct hirers")
             
-            # Phase 7: Prioritize Top Companies
-            print("⭐ Phase 7: Prioritizing top companies...")
+            # Phase 7.5: CRITICAL - Validate Job-ICP Fit (MUST RUN BEFORE PRIORITIZATION)
+            print("🔍 Phase 7.5: CRITICAL JOB-ICP FIT VALIDATION...")
+            print("")
+            job_validator = JobICPValidator(run_id=self.run_id)
+            validated_companies = job_validator.validate_jobs_for_companies(
+                companies=filtered_companies,
+                recruiter_icp=self.recruiter_icp
+            )
+            
+            if len(validated_companies) == 0:
+                raise Exception("No companies passed job-ICP validation. All jobs were mismatched.")
+            
+            self.stats["companies_after_job_validation"] = len(validated_companies)
+            print(f"✅ {len(validated_companies)} companies with validated jobs")
+            
+            # Phase 7: Prioritize Top Companies (from validated companies only)
+            print("⭐ Phase 7: Selecting top companies from validated pool...")
             prioritizer = CompanyPrioritizer(run_id=self.run_id)
             top_companies = prioritizer.select_top_n(
-                companies=filtered_companies,
+                companies=validated_companies,
                 n=4,
                 icp_data=self.recruiter_icp
             )
             
             self.stats["final_companies_selected"] = len(top_companies)
             print(f"✅ Selected top {len(top_companies)} companies")
-            
-            # Phase 7.5: CRITICAL - Validate Job-ICP Fit
-            print("🔍 Phase 7.5: CRITICAL JOB-ICP FIT VALIDATION...")
-            job_validator = JobICPValidator(run_id=self.run_id)
-            top_companies = job_validator.validate_jobs_for_companies(
-                companies=top_companies,
-                recruiter_icp=self.recruiter_icp
-            )
-            
-            if len(top_companies) == 0:
-                raise Exception("No companies passed job-ICP validation. All jobs were mismatched.")
-            
-            self.stats["companies_after_job_validation"] = len(top_companies)
-            print(f"✅ {len(top_companies)} companies with validated jobs")
             
             # Phase 8: Enrich Company Intelligence (Website scraping + AI analysis)
             print("🧠 Phase 8: Enriching company intelligence...")
