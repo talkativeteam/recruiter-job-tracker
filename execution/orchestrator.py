@@ -1,10 +1,11 @@
 """
-Orchestrator - Production Ready
-Simplified pipeline using available modules
+Orchestrator - Full 10-Phase Pipeline
+Recruiter ICP Job Tracker for Talkative
 """
 
 import sys
 import json
+import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -12,13 +13,16 @@ from typing import Dict, Any, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from execution.validate_input import InputValidator
-from execution.call_openai import OpenAIClient
+from execution.call_openai import OpenAICaller
 from execution.call_apify_linkedin_scraper import ApifyLinkedInScraper
+from execution.scrape_website import WebsiteScraper
 from execution.filter_companies import CompanyFilter
 from execution.prioritize_companies import CompanyPrioritizer
 from execution.enrich_company_intel import CompanyIntelligence
 from execution.generate_outreach_email import EmailGenerator
 from execution.supabase_logger import SupabaseLogger
+from execution.send_webhook_response import WebhookSender
+from config import ai_prompts
 from config.config import TMP_DIR
 
 
@@ -28,6 +32,7 @@ class Orchestrator:
         self.logger = SupabaseLogger() if run_id else None
         self.validated_input = {}
         self.recruiter_icp = {}
+        self.boolean_search = ""
         self.jobs_scraped = []
         self.verified_companies = []
         self.outreach_email = ""
@@ -36,10 +41,11 @@ class Orchestrator:
             "companies_found": 0,
             "companies_validated": 0,
             "final_companies_selected": 0,
+            "total_cost": "$0.00"
         }
     
     def run_full_pipeline(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Run complete recruitment pipeline"""
+        """Run complete 10-phase recruitment pipeline"""
         
         try:
             # Phase 1: Validate Input
@@ -51,125 +57,200 @@ class Orchestrator:
                 raise Exception(f"Input validation failed: {error_msg}")
             
             self.validated_input = validated
-            print("✅ Input validated")
+            print("✅ Input validated successfully")
             
-            # Phase 2: Build search query (simple approach - from ICP keywords)
-            print("🎯 Phase 2: Building search query...")
-            # For now, use a simple software search in UK
-            boolean_search = 'title:("software engineer" OR "backend developer" OR "full stack developer")'
-            print(f"✅ Search query: {boolean_search}")
+            # Phase 2: Extract ICP from Client Website
+            print("🎯 Phase 2: Extracting recruiter ICP from client website...")
+            openai = OpenAICaller(run_id=self.run_id)
             
-            # Phase 3: Scrape LinkedIn Jobs
-            print(f"📊 Phase 3: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 100)} max)...")
-            scraper = ApifyLinkedInScraper()
-            self.jobs_scraped = scraper.scrape_linkedin_jobs(
-                search_query=boolean_search,
+            # Scrape client website
+            website_scraper = WebsiteScraper()
+            website_content = website_scraper.scrape_website(validated.get("client_website", ""))
+            
+            # Generate ICP extraction prompt
+            icp_prompt = ai_prompts.format_icp_prompt(website_content or validated.get("client_website", ""))
+            
+            # Call OpenAI to extract ICP
+            icp_response = openai.call_with_retry(
+                prompt=icp_prompt,
+                model="gpt-4o-mini",
+                response_format="json"
+            )
+            
+            try:
+                self.recruiter_icp = json.loads(icp_response)
+            except:
+                self.recruiter_icp = {
+                    "industries": [],
+                    "roles": [],
+                    "skills": [],
+                    "seniority_levels": ["mid", "senior"],
+                    "keywords": []
+                }
+            
+            print(f"✅ ICP extracted: {json.dumps(self.recruiter_icp, indent=2)}")
+            
+            # Phase 3: Generate Boolean Search Query
+            print("🔍 Phase 3: Generating Boolean search query...")
+            boolean_prompt = ai_prompts.format_boolean_search_prompt(self.recruiter_icp)
+            
+            boolean_response = openai.call_with_retry(
+                prompt=boolean_prompt,
+                model="gpt-4o-mini",
+                response_format="text"
+            )
+            
+            self.boolean_search = boolean_response.strip()
+            print(f"✅ Boolean search: {self.boolean_search}")
+            
+            # Phase 4: Scrape LinkedIn Jobs
+            print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 100)} max)...")
+            scraper = ApifyLinkedInScraper(run_id=self.run_id)
+            
+            # Build LinkedIn search URL (UK-based, Software industry, past week)
+            linkedin_url = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r604800"
+            
+            self.jobs_scraped = scraper.scrape_jobs(
+                linkedin_url=linkedin_url,
                 max_jobs=validated.get("max_jobs_to_scrape", 100)
             )
             
             self.stats["total_jobs_scraped"] = len(self.jobs_scraped)
-            print(f"✅ Scraped {len(self.jobs_scraped)} jobs")
+            print(f"✅ Scraped {len(self.jobs_scraped)} jobs from LinkedIn")
             
             if not self.jobs_scraped:
                 raise Exception("No jobs scraped from LinkedIn")
             
-            # Phase 4: Extract unique companies
-            print("🏢 Phase 4: Extracting companies...")
+            # Phase 5: Extract Unique Companies
+            print("🏢 Phase 5: Extracting unique companies from job postings...")
             companies_dict = {}
             for job in self.jobs_scraped:
-                company_name = job.get("company_name", "Unknown")
+                company_name = job.get("company", "Unknown")
                 if company_name not in companies_dict:
                     companies_dict[company_name] = {
                         "name": company_name,
                         "jobs": [],
-                        "description": job.get("company_description", ""),
-                        "size": job.get("company_size", "")
+                        "description": job.get("description", ""),
+                        "company_url": job.get("companyUrl", "")
                     }
                 companies_dict[company_name]["jobs"].append(job)
             
             companies = list(companies_dict.values())
             self.stats["companies_found"] = len(companies)
-            print(f"✅ Found {len(companies)} companies")
+            print(f"✅ Found {len(companies)} unique companies")
             
-            # Phase 5: Filter direct hirers
-            print("🔎 Phase 5: Filtering direct hirers...")
-            company_filter = CompanyFilter()
+            # Phase 6: Validate Direct Hirers (Not Staffing Agencies)
+            print("🔎 Phase 6: Validating direct hirers...")
+            company_filter = CompanyFilter(run_id=self.run_id)
             filtered_companies = []
             
             for company in companies:
+                # Check if direct hirer using AI
+                direct_hirer_prompt = ai_prompts.format_direct_hirer_prompt(
+                    company["name"],
+                    company.get("description", ""),
+                    "",  # industry
+                    " ".join([j.get("description", "") for j in company["jobs"][:2]])
+                )
+                
+                response = openai.call_with_retry(
+                    prompt=direct_hirer_prompt,
+                    model="gpt-4o-mini",
+                    response_format="json"
+                )
+                
                 try:
-                    is_direct = company_filter.is_direct_hirer(
-                        company_name=company["name"],
-                        description=company.get("description", "")
-                    )
-                    if is_direct:
+                    result = json.loads(response)
+                    if result.get("is_direct_hirer", False):
                         filtered_companies.append(company)
                 except:
-                    filtered_companies.append(company)  # Default to include if error
+                    filtered_companies.append(company)  # Default include if error
             
             self.stats["companies_validated"] = len(filtered_companies)
-            print(f"✅ Filtered to {len(filtered_companies)} companies")
+            print(f"✅ Validated {len(filtered_companies)} direct hirers")
             
-            # Phase 6: Prioritize top 4
-            print("⭐ Phase 6: Prioritizing top companies...")
-            prioritizer = CompanyPrioritizer()
+            # Phase 7: Prioritize Top Companies
+            print("⭐ Phase 7: Prioritizing top companies...")
+            prioritizer = CompanyPrioritizer(run_id=self.run_id)
             top_companies = prioritizer.prioritize_companies(
                 companies=filtered_companies,
-                recruiter_icp={},
+                recruiter_icp=self.recruiter_icp,
                 max_companies=4
             )[:4]
             
             self.stats["final_companies_selected"] = len(top_companies)
-            print(f"✅ Selected {len(top_companies)} top companies")
+            print(f"✅ Selected top {len(top_companies)} companies")
             
-            # Phase 7: Enrich company data
-            print("🧠 Phase 7: Enriching company intelligence...")
-            enricher = CompanyIntelligence()
+            # Phase 8: Enrich Company Intelligence (Website scraping + AI analysis)
+            print("🧠 Phase 8: Enriching company intelligence...")
+            enricher = CompanyIntelligence(run_id=self.run_id)
             
             for company in top_companies:
                 try:
+                    # Scrape company website about page
+                    website_scraper = WebsiteScraper()
+                    about_page = website_scraper.scrape_website(
+                        company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com")
+                    )
+                    
+                    # Extract company intelligence
                     enrichment = enricher.enrich_company(
                         company_name=company["name"],
-                        company_description=company.get("description", ""),
-                        jobs=company.get("jobs", [])
+                        company_website_content=about_page,
+                        jobs=company["jobs"]
                     )
                     company["enrichment"] = enrichment if enrichment else {}
                 except Exception as e:
-                    print(f"⚠️  Could not enrich {company['name']}: {e}")
+                    print(f"⚠️ Could not enrich {company['name']}: {e}")
                     company["enrichment"] = {}
             
             self.verified_companies = top_companies
-            print("✅ Enriched company data")
+            print(f"✅ Enriched {len(top_companies)} companies")
             
-            # Phase 8: Generate outreach email
-            print("📧 Phase 8: Generating outreach email...")
-            email_generator = EmailGenerator()
+            # Phase 9: Generate Outreach Email
+            print("📧 Phase 9: Generating personalized outreach email...")
+            email_generator = EmailGenerator(run_id=self.run_id)
             
-            try:
-                self.outreach_email = email_generator.generate_email(
-                    recruiter_input=validated,
-                    companies=top_companies,
-                    recruiter_icp=self.recruiter_icp
-                )
-            except:
-                self.outreach_email = "Failed to generate email"
+            # Format companies data for email
+            companies_data = [
+                {
+                    "name": c["name"],
+                    "description": c.get("description", ""),
+                    "jobs": c.get("jobs", []),
+                    "enrichment": c.get("enrichment", {}),
+                    "website": c.get("company_url", "")
+                }
+                for c in top_companies
+            ]
             
-            print(f"✅ Generated email ({len(self.outreach_email)} chars)")
+            # Generate email
+            self.outreach_email = email_generator.generate_email(
+                recruiter_input=validated,
+                companies=companies_data,
+                recruiter_icp=self.recruiter_icp
+            )
             
-            # Build result
+            print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
+            
+            # Phase 10: Send Webhook Response
+            print("🚀 Phase 10: Sending webhook response...")
+            
             result = {
                 "run_metadata": {
                     "run_id": self.run_id,
-                    "status": "completed"
+                    "status": "completed",
+                    "pipeline_version": "10-phase-full"
                 },
                 "input": self.validated_input,
                 "recruiter_icp": self.recruiter_icp,
+                "boolean_search_used": self.boolean_search,
                 "stats": self.stats,
                 "verified_companies": [
                     {
                         "name": c["name"],
                         "description": c.get("description", ""),
                         "job_count": len(c.get("jobs", [])),
+                        "company_website": c.get("company_url", ""),
                         "enrichment": c.get("enrichment", {})
                     }
                     for c in top_companies
@@ -177,21 +258,38 @@ class Orchestrator:
                 "outreach_email": self.outreach_email
             }
             
-            print("✅ Pipeline completed!")
+            # Send to webhook if URL provided
+            webhook_url = os.getenv("WEBHOOK_URL")
+            if webhook_url:
+                webhook_sender = WebhookSender()
+                webhook_sender.send_webhook(webhook_url, result)
+            
+            print("✅ Pipeline completed successfully!")
+            print(f"✅ All 10 phases executed successfully")
             return result
             
         except Exception as e:
             print(f"❌ Pipeline failed: {str(e)}")
-            return {
+            import traceback
+            traceback.print_exc()
+            
+            error_result = {
                 "run_metadata": {
                     "run_id": self.run_id,
                     "status": "failed",
-                    "error": str(e)
+                    "error": str(e),
+                    "pipeline_version": "10-phase-full"
                 },
                 "input": self.validated_input,
-                "recruiter_icp": {},
+                "recruiter_icp": self.recruiter_icp,
+                "boolean_search_used": self.boolean_search,
                 "stats": self.stats,
                 "verified_companies": [],
                 "outreach_email": ""
             }
+            
+            if self.logger:
+                self.logger.log_error(self.run_id, str(e))
+            
+            return error_result
 
