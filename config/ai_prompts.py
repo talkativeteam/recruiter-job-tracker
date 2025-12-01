@@ -73,43 +73,59 @@ Examples:
 """
 
 # Phase 3: Generate Boolean Search
-PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a STRICT, PRECISE Boolean search string that finds roles AT THE RIGHT TYPE OF COMPANIES.
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a BROAD, INCLUSIVE Boolean search that casts a wide net to find relevant roles.
 
-CRITICAL: The boolean search must filter by BOTH role AND company type to avoid irrelevant results.
+STRATEGY: Pull in 100+ jobs from LinkedIn and let the AI validation layer filter them down. Better to have false positives than miss good opportunities.
 
-Rules:
-1. ALWAYS include company type/industry filters using AND operators
-2. Use quotes around each role (e.g., "Product Manager")
-3. Use OR operators between role variations
-4. Use AND operators to combine roles WITH company type filters
-5. NEVER use vague terms alone
+Rules for BROAD searches:
+1. Use role keywords WITHOUT quotes (quotes = exact match only, too restrictive)
+2. Include many role variations and related titles using OR
+3. Include different seniority levels (junior, mid, senior, director, VP)
+4. Add industry context ONLY if highly specific (medical devices, fintech, etc.)
+5. Focus on ROLE TYPES not exact titles
 
-Format: (role search) AND (company type search)
+Examples of GOOD (broad) searches:
+- Bad: "Product Manager" (too narrow, exact match only)
+- Good: Product Manager OR Product Lead OR Product Owner OR PM (catches variations)
 
-Examples:
-- Good: ("Product Manager" OR "Senior Product Manager") AND ("digital agency" OR "creative agency" OR "marketing agency")
-- Good: ("Network Engineer" OR "Infrastructure Engineer") AND ("SaaS" OR "software company" OR "tech startup")
-- Bad: ("Product Manager" OR "Senior Product Manager") [missing company filter]
-- Bad: ("Engineer") [too vague]
+- Bad: "Senior Network Engineer" AND "SaaS"
+- Good: Network Engineer OR Infrastructure Engineer OR Systems Engineer OR Network Admin OR IT Engineer
+
+- Bad: "Director of Sales" AND ("digital agency" OR "creative agency")
+- Good: Sales Director OR VP Sales OR Head of Sales OR Sales Leader OR Chief Revenue Officer OR Sales Manager
+
+CRITICAL APPROACH:
+1. List 8-15 role variations (different titles for same function)
+2. Include adjacent roles (Marketing Manager → Brand Manager, Communications Manager)
+3. Include seniority variations (Manager, Senior Manager, Director, Senior Director, VP)
+4. NO quotes unless searching for very specific technical terms
+5. Let the AI validation layer (Phase 7.5) filter for ICP fit
 
 ICP Data:
 {icp_data}
 
-CRITICAL: Use the "industries" field to create the company type filter. Be specific!
-- If industries = ["Digital Agencies", "Creative Agencies"] → AND ("digital agency" OR "creative agency" OR "marketing agency")
-- If industries = ["SaaS Companies", "Tech Startups"] → AND ("SaaS" OR "software company" OR "tech startup")
-- If industries = ["Healthcare Providers"] → AND ("hospital" OR "healthcare provider" OR "medical center")
+Your task:
+1. Identify the CORE FUNCTION from roles_hiring (e.g., "Sales", "Marketing", "Engineering")
+2. Generate 10-15 related job title variations
+3. Include all seniority levels that match the recruiter's target
+4. Create broad boolean with OR between all variations
+5. Only add industry filter if it's highly specific (NOT for "technology" or "software")
 
-Generate:
-1. Boolean search string combining roles AND company types
-2. URL-encoded version for LinkedIn
-3. Full LinkedIn URL with parameters
+Examples based on ICP:
+
+If roles = ["VP of Sales", "Sales Director"]:
+Boolean: VP Sales OR Vice President Sales OR SVP Sales OR Sales Director OR Director of Sales OR Head of Sales OR Chief Revenue Officer OR Sales Leader OR Senior Sales Director
+
+If roles = ["Network Engineer", "Infrastructure Engineer"]:
+Boolean: Network Engineer OR Infrastructure Engineer OR Systems Engineer OR IT Engineer OR Network Administrator OR Senior Network Engineer OR Lead Network Engineer OR Network Architect
+
+If roles = ["Marketing Manager"] in "Medical Device" companies:
+Boolean: (Marketing Manager OR Senior Marketing Manager OR Marketing Director OR Brand Manager OR Product Marketing Manager OR Marketing Lead) AND (medical device OR medical technology OR healthcare technology OR medtech)
 
 Output (JSON only):
 {{{{
-  "boolean_search": "(role search) AND (company type search)",
-  "linkedin_url": "https://www.linkedin.com/jobs/search/?f_JT=F&f_TPR=r86400&geoId=103644278&keywords=...&sortBy=R",
-  "geo_id": "103644278"
+  "boolean_search": "broad search with many ORs",
+  "rationale": "Why this search is broad enough"
 }}}}
 """
 

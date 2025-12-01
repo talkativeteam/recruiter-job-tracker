@@ -88,7 +88,7 @@ def process_job():
                 "client_website": input_data.get("client_website"),
                 "email_sender_name": input_data.get("email_sender_name"),
                 "email_sender_address": input_data.get("email_sender_address"),
-                "max_jobs_to_scrape": input_data.get("max_jobs_to_scrape", 100),
+                "max_jobs_to_scrape": input_data.get("max_jobs_to_scrape", 150),
                 "recruiter_timezone": input_data.get("recruiter_timezone", "GMT"),
             },
             "recruiter_icp": result.get("recruiter_icp"),

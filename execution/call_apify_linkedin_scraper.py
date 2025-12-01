@@ -27,10 +27,11 @@ class ApifyLinkedInScraper:
         self.logger = SupabaseLogger() if run_id else None
         self.actor_id = "curious_coder/linkedin-jobs-scraper"
     
-    def scrape_jobs(self, linkedin_url: str, max_jobs: int = 50) -> list:
+    def scrape_jobs(self, linkedin_url: str, max_jobs: int = 150) -> list:
         """
         Scrape LinkedIn jobs using Apify
         CRITICAL: Must use scrapeCompany: true
+        STRATEGY: Pull MORE jobs (default 150) and let AI validation filter them
         """
         run_input = {
             "count": max_jobs,

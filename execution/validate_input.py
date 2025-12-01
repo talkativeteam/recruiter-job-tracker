@@ -64,7 +64,7 @@ class InputValidator:
             return False, f"Invalid URL format: {input_data['client_website']}", {}
         
         # Validate max_jobs_to_scrape (if provided)
-        max_jobs = input_data.get("max_jobs_to_scrape", 50)
+        max_jobs = input_data.get("max_jobs_to_scrape", 150)
         # Convert string to int if needed
         if isinstance(max_jobs, str):
             try:
