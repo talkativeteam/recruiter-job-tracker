@@ -322,10 +322,10 @@ class Orchestrator:
                 
                 # Use Exa to find companies matching ICP
                 print("🔍 Phase 6b: Using Exa to find ICP-matching companies...")
-                from execution.call_apify_linkedin_scraper import call_exa_find_companies
-                exa_companies = call_exa_find_companies(
-                    recruiter_icp=self.recruiter_icp,
-                    run_id=self.run_id
+                self.exa_finder = ExaCompanyFinder(run_id=self.run_id)
+                exa_companies = self.exa_finder.find_companies(
+                    icp_data=self.recruiter_icp,
+                    max_results=20
                 )
                 
                 if not exa_companies or len(exa_companies) == 0:
@@ -549,11 +549,10 @@ class Orchestrator:
         try:
             # Phase 3-7 (Exa): Find companies using Exa
             print("🔍 Phase 3-7 (Exa Direct): Finding ICP-matching companies...")
-            from execution.call_apify_linkedin_scraper import call_exa_find_companies
-            
-            exa_companies = call_exa_find_companies(
-                recruiter_icp=self.recruiter_icp,
-                run_id=self.run_id
+            self.exa_finder = ExaCompanyFinder(run_id=self.run_id)
+            exa_companies = self.exa_finder.find_companies(
+                icp_data=self.recruiter_icp,
+                max_results=20
             )
             
             if not exa_companies or len(exa_companies) == 0:
