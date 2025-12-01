@@ -152,7 +152,7 @@ class Orchestrator:
             
             # Apify requires minimum 100 jobs
             jobs_to_scrape = max(100, validated.get('max_jobs_to_scrape', 100))
-            minimum_acceptable_jobs = 5  # Lower threshold to test - was 30
+            minimum_acceptable_jobs = 30  # Fallback to 7 days if fewer than 30 jobs found
             
             # Try 24 hours first (fresher results)
             print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
