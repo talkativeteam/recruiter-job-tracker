@@ -64,8 +64,8 @@ class Orchestrator:
             openai = OpenAICaller(run_id=self.run_id)
             
             # Scrape client website
-            website_scraper = WebsiteScraper()
-            website_content = website_scraper.scrape_website(validated.get("client_website", ""))
+            website_scraper = WebsiteScraper(run_id=self.run_id)
+            website_content = website_scraper.scrape_http(validated.get("client_website", ""))[1] or validated.get("client_website", "")
             
             # Generate ICP extraction prompt
             icp_prompt = ai_prompts.format_icp_prompt(website_content or validated.get("client_website", ""))
@@ -188,10 +188,9 @@ class Orchestrator:
             for company in top_companies:
                 try:
                     # Scrape company website about page
-                    website_scraper = WebsiteScraper()
-                    about_page = website_scraper.scrape_website(
-                        company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com")
-                    )
+                    website_scraper = WebsiteScraper(run_id=self.run_id)
+                    company_url = company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com")
+                    about_page = website_scraper.scrape_http(company_url)[1] or ""
                     
                     # Extract company intelligence
                     enrichment = enricher.enrich_company(
