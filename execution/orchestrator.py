@@ -407,7 +407,7 @@ class Orchestrator:
             
             print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
             
-            # Calculate total costs
+            # Calculate total costs with detailed breakdown
             openai_cost = self.openai_caller.get_cost_estimate() if self.openai_caller else 0.0
             exa_cost = self.exa_finder.get_cost_estimate() if self.exa_finder else 0.0
             
@@ -417,7 +417,19 @@ class Orchestrator:
             
             total_cost = openai_cost + exa_cost + apify_cost
             
-            # Build detailed cost breakdown
+            # Print detailed cost breakdown
+            print(f"\n💰 Cost Breakdown:")
+            if openai_cost > 0:
+                print(f"  OpenAI: ${openai_cost:.4f} ({self.openai_caller.call_count} calls)")
+                for model, usage in self.openai_caller.model_usage.items():
+                    print(f"    {model}: {usage['calls']} calls, {usage['input_tokens']} in + {usage['output_tokens']} out tokens")
+            if exa_cost > 0:
+                print(f"  Exa: ${exa_cost:.4f} ({self.exa_finder.search_count} searches)")
+            if apify_cost > 0:
+                print(f"  Apify: ${apify_cost:.2f}")
+            print(f"  TOTAL: ${total_cost:.4f}")
+            
+            # Build cost string for stats
             cost_parts = []
             if openai_cost > 0:
                 cost_parts.append(f"${openai_cost:.3f} OpenAI")
@@ -428,7 +440,6 @@ class Orchestrator:
             
             total_cost_str = f"${total_cost:.3f} ({' + '.join(cost_parts)})"
             self.stats["total_cost"] = total_cost_str
-            print(f"💰 Total cost: {total_cost_str}")
             
             # Phase 10: Send Webhook Response
             print("🚀 Phase 10: Sending webhook response...")

@@ -23,7 +23,10 @@ class OpenAICaller:
         self.run_id = run_id
         self.logger = SupabaseLogger() if run_id else None
         self.total_tokens = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         self.call_count = 0
+        self.model_usage = {}  # Track usage per model
     
     def call_with_retry(self, prompt: str, model: str = MODEL_CHEAP, 
                         temperature: float = 0.3, max_tokens: int = 1000,
@@ -59,11 +62,25 @@ class OpenAICaller:
                 
                 content = response.choices[0].message.content
                 tokens = response.usage.total_tokens
+                input_tokens = response.usage.prompt_tokens
+                output_tokens = response.usage.completion_tokens
                 
                 self.total_tokens += tokens
+                self.total_input_tokens += input_tokens
+                self.total_output_tokens += output_tokens
                 self.call_count += 1
                 
-                print(f"✅ OpenAI call successful ({tokens} tokens, {self.total_tokens} total)")
+                # Track per-model usage
+                if model not in self.model_usage:
+                    self.model_usage[model] = {"calls": 0, "input_tokens": 0, "output_tokens": 0}
+                self.model_usage[model]["calls"] += 1
+                self.model_usage[model]["input_tokens"] += input_tokens
+                self.model_usage[model]["output_tokens"] += output_tokens
+                
+                # Calculate cost for this call
+                call_cost = self._calculate_call_cost(model, input_tokens, output_tokens)
+                
+                print(f"✅ OpenAI call successful ({tokens} tokens: {input_tokens} in + {output_tokens} out, ${call_cost:.4f}, total: ${self.get_cost_estimate():.4f})")
                 
                 return content
             
@@ -182,12 +199,34 @@ class OpenAICaller:
     
     def get_cost_estimate(self) -> float:
         """Get estimated cost of all OpenAI calls (returns numeric value)"""
-        # Pricing per 1K tokens
-        # gpt-4o-mini: $0.00015 input, $0.0006 output (avg ~0.0002)
-        # gpt-4-turbo-preview: $0.01 input, $0.03 output (avg ~0.015)
-        # Rough estimate: $0.0005 per 1K tokens average across models
-        estimated_cost = (self.total_tokens / 1000) * 0.0005
-        return estimated_cost
+        # Accurate pricing per model (as of Dec 2024)
+        # gpt-4o-mini: $0.150 per 1M input tokens, $0.600 per 1M output tokens
+        # gpt-4-turbo-preview: $10 per 1M input, $30 per 1M output
+        
+        total_cost = 0.0
+        for model, usage in self.model_usage.items():
+            input_tokens = usage["input_tokens"]
+            output_tokens = usage["output_tokens"]
+            total_cost += self._calculate_call_cost(model, input_tokens, output_tokens)
+        
+        return total_cost
+    
+    def _calculate_call_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
+        """Calculate cost for a single API call based on model and token usage"""
+        if "gpt-4o-mini" in model:
+            # $0.150 per 1M input, $0.600 per 1M output
+            input_cost = (input_tokens / 1_000_000) * 0.150
+            output_cost = (output_tokens / 1_000_000) * 0.600
+        elif "gpt-4-turbo" in model or "gpt-4" in model:
+            # $10 per 1M input, $30 per 1M output
+            input_cost = (input_tokens / 1_000_000) * 10.0
+            output_cost = (output_tokens / 1_000_000) * 30.0
+        else:
+            # Default fallback
+            input_cost = (input_tokens / 1_000_000) * 0.150
+            output_cost = (output_tokens / 1_000_000) * 0.600
+        
+        return input_cost + output_cost
     
     def get_cost_estimate_str(self) -> str:
         """Get formatted cost string"""
