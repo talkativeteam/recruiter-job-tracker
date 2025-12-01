@@ -110,9 +110,12 @@ class Orchestrator:
             # Build LinkedIn search URL (UK-based, Software industry, past week)
             linkedin_url = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r604800"
             
+            # Apify requires minimum 100 jobs
+            jobs_to_scrape = max(100, validated.get('max_jobs_to_scrape', 100))
+            
             self.jobs_scraped = scraper.scrape_jobs(
                 linkedin_url=linkedin_url,
-                max_jobs=validated.get("max_jobs_to_scrape", 100)
+                max_jobs=jobs_to_scrape
             )
             
             self.stats["total_jobs_scraped"] = len(self.jobs_scraped)
