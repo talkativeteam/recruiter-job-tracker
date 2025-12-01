@@ -1,1 +1,1 @@
-web: bash railway_setup.sh && python3 api.py
+web: export PLAYWRIGHT_BROWSERS_PATH=/tmp/ms-playwright && python3 api.py

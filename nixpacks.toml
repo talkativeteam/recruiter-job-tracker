@@ -1,0 +1,43 @@
+# Nixpacks Configuration for Railway
+# Required for Playwright browser installation
+
+[phases.setup]
+nixPkgs = [
+  "...",
+  # Playwright Chromium dependencies
+  "nss",
+  "freetype",
+  "harfbuzz",
+  "ca-certificates",
+  "fontconfig",
+  "libjpeg",
+  "libpng",
+  "libX11",
+  "libXcomposite",
+  "libXdamage",
+  "libXext",
+  "libXfixes",
+  "libxcb",
+  "libdrm",
+  "libxkbcommon",
+  "libxshmfence",
+  "mesa",
+  "expat",
+  "alsa-lib",
+  "at-spi2-core",
+  "cups",
+  "dbus",
+  "gtk3",
+  "pango",
+  "libxrandr"
+]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt",
+  "playwright install chromium",
+  "playwright install-deps chromium"
+]
+
+[start]
+cmd = "python3 api.py"
