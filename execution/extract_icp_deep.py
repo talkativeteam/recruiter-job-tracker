@@ -256,15 +256,11 @@ Output (JSON only, no explanation):
             icp_data = json.loads(response)
             
             # Log extraction
-            if self.logger:
-                self.logger.log_event(
-                    event_type="icp_extracted_deep",
-                    status="success",
-                    data={
-                        "icp": icp_data,
-                        "pages_analyzed": list(page_contents.keys()),
-                        "total_content_length": len(combined_content)
-                    }
+            if self.logger and self.run_id:
+                self.logger.update_phase(
+                    run_id=self.run_id,
+                    phase="deep_icp_extracted",
+                    icp_data=icp_data
                 )
             
             print(f"  ✅ Deep ICP extracted:")
@@ -276,11 +272,10 @@ Output (JSON only, no explanation):
             
         except json.JSONDecodeError as e:
             print(f"  ❌ Error parsing ICP JSON: {e}")
-            if self.logger:
-                self.logger.log_event(
-                    event_type="icp_extraction_failed",
-                    status="error",
-                    data={"error": str(e), "response": response}
+            if self.logger and self.run_id:
+                self.logger.update_phase(
+                    run_id=self.run_id,
+                    phase="deep_icp_extraction_failed"
                 )
             raise Exception(f"Failed to parse ICP data: {e}")
 
