@@ -40,6 +40,14 @@ class InputValidator:
         """Basic email validation"""
         return "@" in email and "." in email.split("@")[1]
     
+    def _parse_boolean(self, value: Any) -> bool:
+        """Parse boolean value from string or bool"""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower().strip() not in ["false", "0", "no", ""]
+        return bool(value)
+    
     def validate_input(self, input_data: Dict[str, Any]) -> tuple[bool, str, Dict[str, Any]]:
         """
         Validate input JSON
@@ -65,12 +73,15 @@ class InputValidator:
         
         # Validate max_jobs_to_scrape (if provided)
         max_jobs = input_data.get("max_jobs_to_scrape", 150)
-        # Convert string to int if needed
+        # Convert string to int if needed, handle empty strings
         if isinstance(max_jobs, str):
-            try:
-                max_jobs = int(max_jobs)
-            except ValueError:
-                return False, f"max_jobs_to_scrape must be a number, got: {max_jobs}", {}
+            if max_jobs.strip() == "":
+                max_jobs = 150  # Default if empty string
+            else:
+                try:
+                    max_jobs = int(max_jobs)
+                except ValueError:
+                    return False, f"max_jobs_to_scrape must be a number, got: {max_jobs}", {}
         
         if not isinstance(max_jobs, int) or max_jobs < 100 or max_jobs > 400:
             return False, f"max_jobs_to_scrape must be between 100 and 400, got: {max_jobs}", {}
@@ -91,7 +102,7 @@ class InputValidator:
             "max_jobs_to_scrape": max_jobs,
             "callback_webhook_url": self.normalize_url(callback_url) if callback_url else None,
             "recruiter_timezone": input_data.get("recruiter_timezone", "UTC"),
-            "linkedin_plus_exa": input_data.get("linkedin_plus_exa", True)  # Default: use LinkedIn + Exa fallback
+            "linkedin_plus_exa": self._parse_boolean(input_data.get("linkedin_plus_exa", True))  # Default: use LinkedIn + Exa fallback
         }
         
         return True, "", validated_data
