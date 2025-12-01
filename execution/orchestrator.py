@@ -333,7 +333,39 @@ class Orchestrator:
                 
                 print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
                 
-                # Use Exa companies for rest of pipeline
+                # 🎭 CRITICAL: Enrich ALL Exa companies with Playwright BEFORE selecting top 4
+                print(f"🧠 Enriching ALL {len(exa_companies)} Exa companies with Playwright...")
+                enricher = CompanyIntelligence()
+                
+                exa_for_enrichment = []
+                for company in exa_companies:
+                    exa_for_enrichment.append({
+                        "company_name": company["name"],
+                        "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                        "company_description": company.get("description", ""),
+                        "employee_count": company.get("employee_count", 0)
+                    })
+                
+                try:
+                    enriched_exa = enricher.enrich_companies(exa_for_enrichment)
+                    print(f"✅ Enriched {len(enriched_exa)} Exa companies")
+                    
+                    # Map enrichment back and add relevance scores
+                    for i, company in enumerate(exa_companies):
+                        if i < len(enriched_exa):
+                            company["enrichment"] = enriched_exa[i]
+                            company["relevance_score"] = enriched_exa[i].get("relevance_score", 0)
+                        else:
+                            company["relevance_score"] = 0
+                    
+                    # Sort by relevance and use for rest of pipeline
+                    exa_companies = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
+                    print(f"✅ Sorted Exa companies by enrichment scores")
+                    
+                except Exception as e:
+                    print(f"⚠️ Exa enrichment failed: {e}, continuing with unsorted results")
+                
+                # Use enriched Exa companies for rest of pipeline
                 validated_companies = exa_companies
             
             self.stats["companies_after_job_validation"] = len(validated_companies)
