@@ -105,7 +105,24 @@ class Orchestrator:
                 response_format="text"
             )
             
-            self.boolean_search = boolean_response.strip()
+            # Parse JSON from response (remove code fences if present)
+            boolean_text = boolean_response.strip()
+            if boolean_text.startswith("```"):
+                boolean_text = boolean_text.split("```")[1]
+                if boolean_text.startswith("json"):
+                    boolean_text = boolean_text[4:]
+                boolean_text = boolean_text.strip()
+            
+            try:
+                boolean_data = json.loads(boolean_text)
+                self.boolean_search = boolean_data.get("boolean_search", "").strip()
+                geo_id = boolean_data.get("geo_id", self.recruiter_icp.get("linkedin_geo_id", "101165590"))
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"⚠️ Failed to parse boolean search JSON: {e}")
+                # Fallback: try to extract boolean search from raw response
+                self.boolean_search = boolean_text
+                geo_id = self.recruiter_icp.get("linkedin_geo_id", "101165590")
+            
             print(f"✅ Boolean search: {self.boolean_search}")
             
             # Phase 4: Scrape LinkedIn Jobs
@@ -118,7 +135,7 @@ class Orchestrator:
             
             # Try 24 hours first (fresher results)
             print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
-            linkedin_url_24h = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r86400"
+            linkedin_url_24h = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_I=4&f_TPR=r86400&sortBy=R"
             
             self.jobs_scraped = scraper.scrape_jobs(
                 linkedin_url=linkedin_url_24h,
@@ -129,7 +146,7 @@ class Orchestrator:
             if len(self.jobs_scraped) < minimum_acceptable_jobs:
                 print(f"⚠️ Only {len(self.jobs_scraped)} jobs found in 24h (need {minimum_acceptable_jobs})")
                 print(f"🔄 Attempt 2: Retrying with past 7 days (r604800)...")
-                linkedin_url_7d = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + "&location=United%20Kingdom&f_I=4&f_TPR=r604800"
+                linkedin_url_7d = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_I=4&f_TPR=r604800&sortBy=R"
                 
                 self.jobs_scraped = scraper.scrape_jobs(
                     linkedin_url=linkedin_url_7d,
