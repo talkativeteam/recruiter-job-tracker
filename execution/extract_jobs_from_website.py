@@ -7,6 +7,7 @@ import json
 from typing import Dict, List, Any, Optional, Tuple
 from execution.scrape_website import WebsiteScraper
 from execution.call_openai import OpenAICaller
+from execution.playwright_job_navigator import PlaywrightJobNavigator
 from config import ai_prompts
 
 
@@ -15,6 +16,7 @@ class JobExtractor:
         self.run_id = run_id
         self.website_scraper = WebsiteScraper(run_id=run_id)
         self.openai_caller = OpenAICaller(run_id=run_id)
+        self.job_navigator = PlaywrightJobNavigator(run_id=run_id)
     
     def extract_jobs_from_companies(self, companies: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -38,20 +40,30 @@ class JobExtractor:
                 print(f"⚠️ No URL for {company['name']}, skipping")
                 continue
             
-            # Scrape the career page with full fallback chain (HTTP → Playwright → Bright Data)
-            success, content, method = self.website_scraper.scrape_http(careers_url)
+            # STRATEGY 1: Try Playwright intelligent navigation to get actual job URLs
+            jobs = self.job_navigator.find_job_urls(careers_url, company['name'])
             
-            # If HTTP fails, try Playwright
-            if not success or not content:
-                print(f"⚠️ HTTP failed, trying Playwright for {company['name']}...")
-                success, content, method = self.website_scraper.scrape_playwright(careers_url)
-            
-            if not success or not content:
-                print(f"❌ Failed to scrape {company['name']} (tried HTTP + Playwright)")
-                continue
-            
-            # Extract jobs using AI
-            jobs = self._extract_jobs_with_ai(content, company['name'])
+            # If Playwright navigation found jobs with URLs, use them
+            if jobs and len(jobs) > 0:
+                print(f"✅ Found {len(jobs)} jobs with URLs via Playwright navigation")
+            else:
+                # STRATEGY 2: Fallback to scraping + AI extraction (no URLs)
+                print(f"⚠️ Playwright navigation found no URLs, falling back to scraping + AI...")
+                
+                # Scrape the career page with full fallback chain (HTTP → Playwright)
+                success, content, method = self.website_scraper.scrape_http(careers_url)
+                
+                # If HTTP fails, try Playwright
+                if not success or not content:
+                    print(f"⚠️ HTTP failed, trying Playwright for {company['name']}...")
+                    success, content, method = self.website_scraper.scrape_playwright(careers_url)
+                
+                if not success or not content:
+                    print(f"❌ Failed to scrape {company['name']} (tried HTTP + Playwright)")
+                    continue
+                
+                # Extract jobs using AI (will have job titles but may not have URLs)
+                jobs = self._extract_jobs_with_ai(content, company['name'])
             
             if jobs and len(jobs) > 0:
                 company['jobs'] = jobs
