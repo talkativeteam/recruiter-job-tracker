@@ -106,7 +106,7 @@ Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
 
 {companies_section}
 
-Shout out if you want the contact info for any of these folks. We send this type of thing over to recruiters all the time with the decision makers info and phone number.
+Shout out if you want the email and mobile for any of these ones.
 
 Happy to have a quick 10 min chat about how we could explore doing something like this for you if you like. How's 4pm GMT today?
 
