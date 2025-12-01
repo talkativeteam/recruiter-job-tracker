@@ -225,16 +225,22 @@ EXACT FORMAT - DO NOT DEVIATE:
 Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
 
 [GENERATE ONLY THIS SECTION - ONE ENTRY PER COMPANY]
-1. [Company Name] — [Role Title]
+
+SINGLE ROLE FORMAT:
+Company Name — Role Title
 [1-2 lines: what they do, key details]
 [1-2 lines: what the role entails, candidate profile]
-Website: [company website URL]
-Job: [FULL JOB POSTING LINK]
+Website: [URL]
+Job: [URL]
 
-2. [Company Name] — [Role Title]
-[repeat format for each company]
+MULTIPLE ROLES FORMAT (when company has 2+ roles):
+Company Name — Multiple Openings
+[1 line: what they do]
+They're hiring for [Role 1], [Role 2], and [Role 3]. [1 line: what this expansion signals - growth/scaling/diversification]
+Website: [URL]
+Jobs: [URL 1], [URL 2], [URL 3]
 
-[CONTINUE FOR ALL COMPANIES]
+[CONTINUE FOR ALL COMPANIES - ONE PARAGRAPH PER COMPANY, NOT PER ROLE]
 
 Shout out if you want the contact info for any of these folks. We send this type of thing over to recruiters all the time with the decision makers info and phone number.
 
@@ -243,19 +249,22 @@ Happy to have a quick 10 min chat about how we could explore doing something lik
 Your call.
 
 CRITICAL RULES:
-1. ONLY generate the companies section (numbered list with details)
+1. ONLY generate the companies section (formatted entries)
 2. DO NOT generate the opening line or closing section - those are fixed
-3. INCLUDE website URL AND job posting link for EVERY company
-4. Keep each company to 4 lines max
-5. Use ACTUAL company names and REAL job posting URLs
-6. Factual descriptions only - no marketing speak
-7. No signature or extra closing lines
-8. Output plain text only, NO JSON, NO MARKDOWN
+3. If a company has multiple roles, group them into ONE entry with "Multiple Openings" format
+4. INCLUDE website URL AND job posting links for EVERY role
+5. Keep each company entry to 4-5 lines max
+6. Use ACTUAL company names and REAL job posting URLs
+7. Factual descriptions only - no marketing speak
+8. When multiple roles: highlight what the expansion means (scaling, growth phase, diversification)
+9. No signature or extra closing lines
+10. Output plain text only, NO JSON, NO MARKDOWN
+11. NEVER repeat the same company twice - group all their roles together
 
 Companies data to include:
 {companies_data}
 
-Generate ONLY the numbered companies section (starting with "1. "):"""
+Generate ONLY the companies section (one entry per company):"""
 
 # Prompt helper functions
 def format_icp_prompt(website_content: str) -> str:
@@ -369,16 +378,43 @@ Generate criteria as a JSON array of strings. Be BROAD to capture more companies
 def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: str = None, 
                        sender_email: str = None, email_thread: str = None, recruiter_timezone: str = None) -> str:
     """Format the outreach email generation prompt"""
+    # Group companies by name to consolidate duplicate entries
+    from collections import defaultdict
+    companies_grouped = defaultdict(lambda: {
+        'company_name': '',
+        'company_website': '',
+        'employee_count': 'Unknown',
+        'company_description': '',
+        'insider_intelligence': None,
+        'roles_hiring': []
+    })
+    
+    for company in companies_data:
+        company_name = company['company_name']
+        
+        # Initialize company data if first occurrence
+        if not companies_grouped[company_name]['company_name']:
+            companies_grouped[company_name].update({
+                'company_name': company_name,
+                'company_website': company['company_website'],
+                'employee_count': company.get('employee_count', 'Unknown'),
+                'company_description': company.get('company_description', ''),
+                'insider_intelligence': company.get('insider_intelligence')
+            })
+        
+        # Add all roles from this entry
+        companies_grouped[company_name]['roles_hiring'].extend(company['roles_hiring'])
+    
     # Format companies data with insider intelligence
     companies_text = ""
-    for i, company in enumerate(companies_data, 1):
+    for i, (company_name, company) in enumerate(companies_grouped.items(), 1):
         companies_text += f"\nCompany {i}:\n"
         companies_text += f"  Name: {company['company_name']}\n"
         companies_text += f"  Website: {company['company_website']}\n"
-        companies_text += f"  Employee Count: {company.get('employee_count', 'Unknown')}\n"
+        companies_text += f"  Employee Count: {company['employee_count']}\n"
         
         # Add insider intelligence if available
-        if 'insider_intelligence' in company:
+        if company['insider_intelligence']:
             intel = company['insider_intelligence']
             companies_text += f"  Business Description: {intel.get('business_description', '')}\n"
             if intel.get('insider_details'):
@@ -386,9 +422,12 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
                 for detail in intel['insider_details']:
                     companies_text += f"    - {detail}\n"
         else:
-            companies_text += f"  Description: {company.get('company_description', '')[:200]}\n"
+            companies_text += f"  Description: {company['company_description'][:200]}\n"
         
-        companies_text += f"  Open Roles:\n"
+        # Show count of roles
+        role_count = len(company['roles_hiring'])
+        companies_text += f"  Open Roles ({role_count} total):\n"
+        
         for role in company['roles_hiring']:
             posted_date = role.get('posted_at', '')
             job_url = role.get('job_url', '')
