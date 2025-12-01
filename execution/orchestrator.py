@@ -21,7 +21,7 @@ from execution.prioritize_companies import CompanyPrioritizer
 from execution.enrich_company_intel import CompanyIntelligence
 from execution.generate_outreach_email import EmailGenerator
 from execution.supabase_logger import SupabaseLogger
-from execution.send_webhook_response import WebhookSender
+from execution.send_webhook_response import send_webhook
 from config import ai_prompts
 from config.config import TMP_DIR
 
@@ -261,8 +261,7 @@ class Orchestrator:
             # Send to webhook if URL provided
             webhook_url = os.getenv("WEBHOOK_URL")
             if webhook_url:
-                webhook_sender = WebhookSender()
-                webhook_sender.send_webhook(webhook_url, result)
+                send_webhook(webhook_url, result)
             
             print("✅ Pipeline completed successfully!")
             print(f"✅ All 10 phases executed successfully")
