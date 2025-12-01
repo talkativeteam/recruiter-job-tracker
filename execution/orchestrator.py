@@ -342,6 +342,7 @@ class Orchestrator:
                     exa_for_enrichment.append({
                         "company_name": company["name"],
                         "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                        "careers_url": company.get("careers_url", ""),
                         "company_description": company.get("description", ""),
                         "employee_count": company.get("employee_count", 0)
                     })
@@ -393,6 +394,7 @@ class Orchestrator:
                 companies_for_enrichment.append({
                     "company_name": company["name"],
                     "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                    "careers_url": company.get("careers_url", ""),
                     "company_description": company.get("description", ""),
                     "employee_count": company.get("employee_count", 0)
                 })
@@ -601,6 +603,7 @@ class Orchestrator:
                 companies_for_enrichment.append({
                     "company_name": company["name"],
                     "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                    "careers_url": company.get("careers_url", ""),
                     "company_description": company.get("description", ""),
                     "employee_count": company.get("employee_count", 0)
                 })
@@ -637,30 +640,36 @@ class Orchestrator:
             
             # Phase 8.5: Find Decision Makers
             print("👤 Phase 8.5: Finding decision makers...")
-            contact_finder = ContactFinder(run_id=self.run_id)
+            dm_finder = DecisionMakerFinder(run_id=self.run_id)
             
+            # Format companies for decision maker search (Exa companies don't have jobs field)
+            companies_for_dm = []
+            for company_data in enriched_companies:
+                companies_for_dm.append({
+                    "company_name": company_data["company_name"],
+                    "company_website": company_data["company_website"],
+                    "company_description": company_data.get("company_description", ""),
+                    "employee_count": company_data.get("employee_count", 50),
+                    "jobs": []  # Exa direct mode has no jobs, DM finder will use general search
+                })
+            
+            # Find decision makers
+            decision_makers = dm_finder.find_decision_makers(companies_for_dm)
+            
+            # Map decision makers back to companies
             verified_companies = []
-            for idx, company_data in enumerate(enriched_companies):
-                try:
-                    contact_info = contact_finder.find_contact(
-                        company_name=company_data["company_name"],
-                        company_website=company_data["company_website"],
-                        target_roles=self.recruiter_icp.get("roles", []),
-                        icp_data=self.recruiter_icp
-                    )
-                    
+            for idx, dm_result in enumerate(decision_makers):
+                if idx < len(enriched_companies):
                     verified_companies.append({
-                        "company_name": company_data["company_name"],
-                        "company_website": company_data["company_website"],
-                        "company_description": company_data.get("company_description", ""),
-                        "contact_person": contact_info.get("name", "Hiring Manager"),
-                        "contact_title": contact_info.get("title", ""),
-                        "contact_linkedin": contact_info.get("linkedin_url", ""),
-                        "company_intel": company_data.get("analysis", ""),
-                        "relevance_score": company_data.get("relevance_score", 0)
+                        "company_name": dm_result.get("company_name", enriched_companies[idx]["company_name"]),
+                        "company_website": dm_result.get("company_website", enriched_companies[idx]["company_website"]),
+                        "company_description": enriched_companies[idx].get("company_description", ""),
+                        "contact_person": dm_result.get("contact_name", "Hiring Manager"),
+                        "contact_title": dm_result.get("contact_title", ""),
+                        "contact_linkedin": dm_result.get("contact_linkedin", ""),
+                        "company_intel": enriched_companies[idx].get("insider_intelligence", {}),
+                        "relevance_score": enriched_companies[idx].get("relevance_score", 0)
                     })
-                except Exception as e:
-                    print(f"  ⚠️ Contact finding failed for {company_data['company_name']}: {e}")
             
             if not verified_companies:
                 raise Exception("No companies with valid contacts found")

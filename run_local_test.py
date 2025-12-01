@@ -17,20 +17,26 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from execution.orchestrator import Orchestrator
 
-def run_local_test():
+def run_local_test(input_file=None):
     """Run test with local input"""
     
-    # Test input
-    test_input = {
-        "client_name": "Vince Dunne",
-        "client_email": "vince@dunnesearchgroup.com",
-        "client_website": "https://dunnesearchgroup.com/",
-        "email_sender_name": "Sid Kennedy",
-        "email_sender_address": "kenne.s@talkativecrew.com",
-        "max_jobs_to_scrape": 100,
-        "callback_webhook_url": None,
-        "recruiter_timezone": "EST"
-    }
+    # Load test input from file if provided, otherwise use default
+    if input_file:
+        print(f"📂 Loading input from: {input_file}")
+        with open(input_file, 'r') as f:
+            test_input = json.load(f)
+    else:
+        # Default test input
+        test_input = {
+            "client_name": "Vince Dunne",
+            "client_email": "vince@dunnesearchgroup.com",
+            "client_website": "https://dunnesearchgroup.com/",
+            "email_sender_name": "Sid Kennedy",
+            "email_sender_address": "kenne.s@talkativecrew.com",
+            "max_jobs_to_scrape": 100,
+            "callback_webhook_url": None,
+            "recruiter_timezone": "EST"
+        }
     
     print("=" * 80)
     print("🚀 LOCAL TEST RUN - Recruiter Job Tracker")
@@ -82,4 +88,7 @@ def run_local_test():
         return None
 
 if __name__ == "__main__":
-    run_local_test()
+    # Check for command-line argument for input file
+    import sys
+    input_file = sys.argv[1] if len(sys.argv) > 1 else None
+    run_local_test(input_file)

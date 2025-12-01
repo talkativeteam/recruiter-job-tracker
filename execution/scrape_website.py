@@ -111,6 +111,68 @@ class WebsiteScraper:
         print("⚠️ This should be integrated via Bright Data's scrape_as_markdown MCP tool.")
         return False, None, "bright_data"
     
+    def scrape_url_content(self, url: str) -> Optional[str]:
+        """
+        Scrape URL and return content directly (no file save)
+        Returns: content string or None
+        """
+        # Try HTTP first (FREE)
+        success, content, method = self.scrape_http(url)
+        if success and content:
+            return content
+        
+        # Try Playwright (FREE)
+        success, content, method = self.scrape_playwright(url)
+        if success and content:
+            return content
+        
+        return None
+    
+    def find_career_links(self, homepage_content: str, base_url: str) -> list:
+        """
+        Find career/jobs links from homepage markdown content
+        Returns: list of potential career page URLs
+        """
+        career_keywords = ['career', 'job', 'hiring', 'join', 'work-with-us', 'opportunities', 'openings']
+        potential_links = []
+        
+        # Extract links from markdown using regex
+        import re
+        # Match markdown links: [text](url) or just URLs
+        link_pattern = r'\[([^\]]+)\]\(([^\)]+)\)|https?://[^\s\)]+'
+        
+        for match in re.finditer(link_pattern, homepage_content, re.IGNORECASE):
+            if match.group(2):  # Markdown link [text](url)
+                link_text = match.group(1).lower()
+                url = match.group(2)
+            else:  # Plain URL
+                link_text = ''
+                url = match.group(0)
+            
+            url_lower = url.lower()
+            
+            # Check if link contains career keywords
+            if any(keyword in url_lower or keyword in link_text for keyword in career_keywords):
+                # Make absolute URL
+                if url.startswith('http'):
+                    potential_links.append(url)
+                elif url.startswith('/'):
+                    potential_links.append(f"{base_url.rstrip('/')}{url}")
+                else:
+                    potential_links.append(f"{base_url.rstrip('/')}/{url}")
+        
+        # Also try common career page patterns
+        common_patterns = [
+            f"{base_url}/careers",
+            f"{base_url}/jobs",
+            f"{base_url}/join-us",
+            f"{base_url}/opportunities"
+        ]
+        
+        potential_links.extend(common_patterns)
+        
+        return list(set(potential_links))[:5]  # Return max 5 unique links
+    
     def scrape(self, url: str, output_path: str) -> bool:
         """
         Main scraping method - tries all methods in order

@@ -1,11 +1,12 @@
 {
-  "client_name": "Tim Smith",
-  "client_email": "tim@example.com",
-  "client_website": "https://emsearchpartners.com",
-  "email_sender_name": "Test Sender",
-  "email_sender_address": "test@test.com",
-  "email_thread": "Test thread",
-  "max_jobs_to_scrape": 5,
+  "client_name": "Tim Lawrie",
+  "client_email": "timlawrie@projectusconsulting.com",
+  "client_website": "www.projectusconsulting.com",
+  "email_sender_name": "",
+  "email_sender_address": "",
+  "email_thread": "",
+  "max_jobs_to_scrape": "",
   "callback_webhook_url": null,
-  "recruiter_timezone": "EST"
+  "recruiter_timezone": "",
+  "linkedin_plus_exa": "false"
 }
