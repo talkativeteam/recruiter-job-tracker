@@ -153,7 +153,8 @@ class Orchestrator:
             
             # Try 24 hours first (fresher results)
             print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
-            linkedin_url_24h = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_C=1&countryCode={country_code}&f_I=4&f_TPR=r86400&sortBy=R"
+            print(f"📍 Country: {self.recruiter_icp.get('primary_country')} (code: {country_code}, geoId: {geo_id})")
+            linkedin_url_24h = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_I=4&f_TPR=r86400&sortBy=R"
             
             self.jobs_scraped = scraper.scrape_jobs(
                 linkedin_url=linkedin_url_24h,
@@ -164,7 +165,7 @@ class Orchestrator:
             if len(self.jobs_scraped) < minimum_acceptable_jobs:
                 print(f"⚠️ Only {len(self.jobs_scraped)} jobs found in 24h (need {minimum_acceptable_jobs})")
                 print(f"🔄 Attempt 2: Retrying with past 7 days (r604800)...")
-                linkedin_url_7d = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_C=1&countryCode={country_code}&f_I=4&f_TPR=r604800&sortBy=R"
+                linkedin_url_7d = "https://www.linkedin.com/jobs/search/?keywords=" + self.boolean_search.replace(" ", "%20") + f"&geoId={geo_id}&f_I=4&f_TPR=r604800&sortBy=R"
                 
                 self.jobs_scraped = scraper.scrape_jobs(
                     linkedin_url=linkedin_url_7d,

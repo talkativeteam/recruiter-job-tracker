@@ -40,7 +40,7 @@ class ApifyLinkedInScraper:
         
         print(f"🔍 Starting Apify LinkedIn Jobs Scraper...")
         print(f"📊 Max jobs: {max_jobs}")
-        print(f"🔗 URL: {linkedin_url}")
+        print(f"🔗 Full URL: {linkedin_url}")
         print(f"⚠️ scrapeCompany: True (CRITICAL)")
         
         for attempt in range(MAX_RETRIES):
