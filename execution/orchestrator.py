@@ -129,13 +129,13 @@ class Orchestrator:
             print("🏢 Phase 5: Extracting unique companies from job postings...")
             companies_dict = {}
             for job in self.jobs_scraped:
-                company_name = job.get("company", "Unknown")
+                company_name = job.get("companyName", "Unknown")
                 if company_name not in companies_dict:
                     companies_dict[company_name] = {
                         "name": company_name,
                         "jobs": [],
-                        "description": job.get("description", ""),
-                        "company_url": job.get("companyUrl", "")
+                        "description": job.get("companyDescription", ""),
+                        "company_url": job.get("companyWebsite", "")
                     }
                 companies_dict[company_name]["jobs"].append(job)
             
@@ -238,8 +238,8 @@ class Orchestrator:
                 normalized_jobs = []
                 for job in company.get("jobs", []):
                     normalized_job = {
-                        "job_title": job.get("positionTitle") or job.get("title") or job.get("name") or "Unknown",
-                        "description": job.get("description", "")
+                        "job_title": job.get("title") or job.get("positionTitle") or job.get("name") or "Unknown",
+                        "description": job.get("descriptionText") or job.get("description", "")
                     }
                     normalized_jobs.append(normalized_job)
                 
@@ -262,9 +262,9 @@ class Orchestrator:
                 enriched_jobs = []
                 for job in company.get("jobs", []):
                     enriched_job = {
-                        "job_title": job.get("positionTitle") or job.get("title") or job.get("name") or "Unknown",
-                        "description": job.get("description", ""),
-                        "job_url": job.get("url", ""),  # CRITICAL: LinkedIn job posting URL
+                        "job_title": job.get("title") or job.get("positionTitle") or job.get("name") or "Unknown",
+                        "description": job.get("descriptionText") or job.get("description", ""),
+                        "job_url": job.get("link") or job.get("url", ""),  # LinkedIn uses 'link', Apify returns it
                         "posted_at": job.get("postedAt", "")
                     }
                     enriched_jobs.append(enriched_job)
