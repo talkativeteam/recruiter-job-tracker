@@ -182,10 +182,12 @@ class OpenAICaller:
     
     def get_cost_estimate(self) -> str:
         """Get estimated cost of all OpenAI calls"""
-        # Rough estimates (actual costs vary by model)
-        cost_per_1k_tokens = 0.0002 if "gpt-4o-mini" in str(self.call_count) else 0.01
-        estimated_cost = (self.total_tokens / 1000) * cost_per_1k_tokens
-        return f"${estimated_cost:.3f} OpenAI ({self.call_count} calls, {self.total_tokens} tokens)"
+        # Pricing per 1K tokens
+        # gpt-4o-mini: $0.00015 input, $0.0006 output (avg ~0.0002)
+        # gpt-4-turbo-preview: $0.01 input, $0.03 output (avg ~0.015)
+        # Rough estimate: $0.0005 per 1K tokens average across models
+        estimated_cost = (self.total_tokens / 1000) * 0.0005
+        return f"${estimated_cost:.2f} OpenAI"
 
 def main():
     parser = argparse.ArgumentParser(description="Call OpenAI API")

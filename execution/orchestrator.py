@@ -37,6 +37,7 @@ class Orchestrator:
         self.jobs_scraped = []
         self.verified_companies = []
         self.outreach_email = ""
+        self.openai_caller = None  # Will be initialized once
         self.stats = {
             "total_jobs_scraped": 0,
             "companies_found": 0,
@@ -60,9 +61,12 @@ class Orchestrator:
             self.validated_input = validated
             print("✅ Input validated successfully")
             
+            # Initialize OpenAI caller (reuse throughout pipeline)
+            self.openai_caller = OpenAICaller(run_id=self.run_id)
+            
             # Phase 2: Extract ICP from Client Website
             print("🎯 Phase 2: Extracting recruiter ICP from client website...")
-            openai = OpenAICaller(run_id=self.run_id)
+            openai = self.openai_caller
             
             # Scrape client website
             website_scraper = WebsiteScraper(run_id=self.run_id)
@@ -285,6 +289,12 @@ class Orchestrator:
             )
             
             print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
+            
+            # Calculate total costs
+            openai_cost = self.openai_caller.get_cost_estimate() if self.openai_caller else "$0.00"
+            apify_cost = "$0.05"  # Fixed Apify cost per run
+            total_cost_str = f"{openai_cost} + {apify_cost} Apify"
+            self.stats["total_cost"] = total_cost_str
             
             # Phase 10: Send Webhook Response
             print("🚀 Phase 10: Sending webhook response...")
