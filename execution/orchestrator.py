@@ -231,7 +231,7 @@ class Orchestrator:
             dm_finder = DecisionMakerFinder(run_id=self.run_id)
             
             # Format companies for decision maker search
-            # Normalize job fields to match DecisionMakerFinder expectations
+            # Normalize job fields to match DecisionMakerFinder expectations (needs job_title only)
             companies_for_dm = []
             for company in top_companies:
                 # Normalize jobs - LinkedIn uses different field names
@@ -255,9 +255,31 @@ class Orchestrator:
             decision_makers = dm_finder.find_decision_makers(companies_for_dm)
             print(f"✅ Found decision makers for {len(decision_makers)} companies")
             
+            # Format companies for email generator (needs full job data with URLs)
+            companies_for_email = []
+            for company in top_companies:
+                # Enrich jobs with both title and URL for email
+                enriched_jobs = []
+                for job in company.get("jobs", []):
+                    enriched_job = {
+                        "job_title": job.get("positionTitle") or job.get("title") or job.get("name") or "Unknown",
+                        "description": job.get("description", ""),
+                        "job_url": job.get("url", ""),  # CRITICAL: LinkedIn job posting URL
+                        "posted_at": job.get("postedAt", "")
+                    }
+                    enriched_jobs.append(enriched_job)
+                
+                companies_for_email.append({
+                    "company_name": company.get("name", ""),
+                    "company_website": company.get("company_url", ""),
+                    "company_description": company.get("description", ""),
+                    "employee_count": company.get("employee_count", 50),
+                    "roles_hiring": enriched_jobs  # Email generator uses 'roles_hiring' key
+                })
+            
             # Generate email with decision makers
             self.outreach_email = email_generator.generate_email_content(
-                companies=companies_for_dm,
+                companies=companies_for_email,
                 decision_makers=decision_makers,
                 recruiter_data=validated
             )

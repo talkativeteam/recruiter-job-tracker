@@ -74,7 +74,7 @@ class EmailGenerator:
                 "company_name": company["company_name"],
                 "company_website": company.get("company_website", ""),
                 "company_description": company.get("company_description", "")[:150],
-                "roles_hiring": company.get("jobs", [])  # Include full job objects with URLs
+                "roles_hiring": company.get("roles_hiring", [])  # Use 'roles_hiring' which has job_url
             }
             if dm and dm.get("name"):  # Only add if we have actual decision maker data
                 company_data["decision_maker"] = {
