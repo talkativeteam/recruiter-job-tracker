@@ -309,8 +309,27 @@ class Orchestrator:
                 recruiter_icp=self.recruiter_icp
             )
             
+            # 🔥 CRITICAL: If validation fails, trigger Exa fallback instead of failing
             if len(validated_companies) == 0:
-                raise Exception("No companies passed job-ICP validation. All jobs were mismatched.")
+                print(f"\n❌ VALIDATION FAILED: 0/{len(filtered_companies)} companies passed job-ICP validation")
+                print(f"🔄 TRIGGERING EXA FALLBACK: LinkedIn jobs were wrong industry/roles")
+                print("")
+                
+                # Use Exa to find companies matching ICP
+                print("🔍 Phase 6b: Using Exa to find ICP-matching companies...")
+                from execution.call_apify_linkedin_scraper import call_exa_find_companies
+                exa_companies = call_exa_find_companies(
+                    recruiter_icp=self.recruiter_icp,
+                    run_id=self.run_id
+                )
+                
+                if not exa_companies or len(exa_companies) == 0:
+                    raise Exception("No companies found via Exa fallback either.")
+                
+                print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
+                
+                # Use Exa companies for rest of pipeline
+                validated_companies = exa_companies
             
             self.stats["companies_after_job_validation"] = len(validated_companies)
             print(f"✅ {len(validated_companies)} companies with validated jobs")

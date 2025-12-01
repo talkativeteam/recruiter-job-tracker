@@ -1,0 +1,11 @@
+{
+  "client_name": "Tim Smith",
+  "client_email": "tim@example.com",
+  "client_website": "https://emsearchpartners.com",
+  "email_sender_name": "Test Sender",
+  "email_sender_address": "test@test.com",
+  "email_thread": "Test thread",
+  "max_jobs_to_scrape": 5,
+  "callback_webhook_url": null,
+  "recruiter_timezone": "EST"
+}
