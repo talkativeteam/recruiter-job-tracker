@@ -63,8 +63,8 @@ class InputValidator:
             except ValueError:
                 return False, f"max_jobs_to_scrape must be a number, got: {max_jobs}", {}
         
-        if not isinstance(max_jobs, int) or max_jobs < 1 or max_jobs > 100:
-            return False, f"max_jobs_to_scrape must be between 1 and 100, got: {max_jobs}", {}
+        if not isinstance(max_jobs, int) or max_jobs < 100 or max_jobs > 400:
+            return False, f"max_jobs_to_scrape must be between 100 and 400, got: {max_jobs}", {}
         
         # Validate callback_webhook_url (if provided)
         callback_url = input_data.get("callback_webhook_url")
