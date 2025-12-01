@@ -41,14 +41,27 @@ class JobExtractor:
                 continue
             
             # STRATEGY 1: Try Playwright intelligent navigation to get actual job URLs
+            print(f"  🎭 Attempting Playwright navigation for job URLs...")
             jobs = self.job_navigator.find_job_urls(careers_url, company['name'])
             
             # If Playwright navigation found jobs with URLs, use them
             if jobs and len(jobs) > 0:
-                print(f"✅ Found {len(jobs)} jobs with URLs via Playwright navigation")
-            else:
+                print(f"  ✅ Found {len(jobs)} jobs with URLs via Playwright navigation")
+                # Verify jobs have actual URLs (not mailto: or empty)
+                valid_jobs = [j for j in jobs if j.get('job_url') and not j['job_url'].startswith('mailto:')]
+                if len(valid_jobs) < len(jobs):
+                    print(f"  ⚠️ {len(jobs) - len(valid_jobs)} jobs had invalid URLs (mailto: or empty)")
+                jobs = valid_jobs
+                if len(valid_jobs) > 0:
+                    # We have valid job URLs, skip AI extraction
+                    pass
+                else:
+                    # No valid URLs, need to fallback
+                    jobs = []
+            
+            if not jobs or len(jobs) == 0:
                 # STRATEGY 2: Fallback to scraping + AI extraction (no URLs)
-                print(f"⚠️ Playwright navigation found no URLs, falling back to scraping + AI...")
+                print(f"  ⚠️ Playwright navigation found no valid URLs, falling back to scraping + AI...")
                 
                 # Scrape the career page with full fallback chain (HTTP → Playwright)
                 success, content, method = self.website_scraper.scrape_http(careers_url)
