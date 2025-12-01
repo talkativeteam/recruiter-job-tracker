@@ -26,6 +26,7 @@ from execution.send_webhook_response import send_webhook
 from execution.call_exa_api import ExaCompanyFinder
 from execution.extract_jobs_from_website import JobExtractor
 from execution.extract_icp_deep import DeepICPExtractor
+from execution.validate_job_icp_fit import JobICPValidator
 from config import ai_prompts
 from config.config import TMP_DIR
 
@@ -310,6 +311,20 @@ class Orchestrator:
             
             self.stats["final_companies_selected"] = len(top_companies)
             print(f"✅ Selected top {len(top_companies)} companies")
+            
+            # Phase 7.5: CRITICAL - Validate Job-ICP Fit
+            print("🔍 Phase 7.5: CRITICAL JOB-ICP FIT VALIDATION...")
+            job_validator = JobICPValidator(run_id=self.run_id)
+            top_companies = job_validator.validate_jobs_for_companies(
+                companies=top_companies,
+                recruiter_icp=self.recruiter_icp
+            )
+            
+            if len(top_companies) == 0:
+                raise Exception("No companies passed job-ICP validation. All jobs were mismatched.")
+            
+            self.stats["companies_after_job_validation"] = len(top_companies)
+            print(f"✅ {len(top_companies)} companies with validated jobs")
             
             # Phase 8: Enrich Company Intelligence (Website scraping + AI analysis)
             print("🧠 Phase 8: Enriching company intelligence...")
