@@ -35,8 +35,8 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Agent configuration
 AGENT_NAME = "recruiter-job-tracker"
-DEFAULT_MAX_JOBS = 50
-MAX_JOBS_LIMIT = 100
+DEFAULT_MAX_JOBS = 100
+MAX_JOBS_LIMIT = 400
 
 # AI Models
 MODEL_CHEAP = "gpt-4o-mini"  # For most tasks
@@ -57,7 +57,7 @@ MAX_COMPANY_SIZE = 100  # employees
 
 # LinkedIn search parameters
 LINKEDIN_BASE_URL = "https://www.linkedin.com/jobs/search/"
-LINKEDIN_TIME_FILTER = "r86400"  # Last 24 hours
+LINKEDIN_TIME_FILTER = "r604800"  # Last 7 days
 LINKEDIN_JOB_TYPE = "F"  # Full-time
 
 # Logging configuration

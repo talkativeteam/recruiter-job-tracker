@@ -98,7 +98,7 @@ def process_job():
                 "subject": f"Re: {input_data.get('email_subject', 'Recruitment Opportunities')}",
                 "from": f"{input_data.get('email_sender_name')} <{input_data.get('email_sender_address')}>",
                 "to": f"{input_data.get('client_name')} <{input_data.get('client_email')}>",
-                "body": result.get("outreach_email_body", ""),
+                "body": result.get("outreach_email", ""),
             }
         }
         
