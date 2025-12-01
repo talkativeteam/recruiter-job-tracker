@@ -6,14 +6,25 @@ Centralized storage for all AI prompts used in the system
 # Phase 2: Identify Recruiter ICP
 PROMPT_IDENTIFY_ICP = """You are an expert at analyzing recruiter websites to extract their Ideal Client Profile (ICP) and the specific roles they fill.
 
+CRITICAL DISTINCTION:
+- "Industries" = The TYPE OF COMPANIES the recruiter's clients are (e.g., "Digital Agencies", "Creative Agencies", "SaaS Companies", "Fintech Companies")
+- "Roles" = The JOB TITLES they fill (e.g., "Product Manager", "Web Developer", "UX Designer")
+
+Example: If they say "we recruit Product Managers for digital agencies" → industries: ["Digital Agencies", "Creative Agencies"], roles: ["Product Manager"]
+
 Your task is to analyze the recruiter's website content and extract:
-1. Industries they serve (e.g., "Technology", "Healthcare", "Finance")
-2. Company sizes they target (e.g., "10-100 employees", "100-500 employees")
-3. Geographies they operate in (countries, states, cities)
-4. Specific roles they fill (be PRECISE - e.g., "IT Help Desk Support", NOT just "IT")
-5. Keywords for Boolean search (variations of role names)
-6. Primary country for LinkedIn search
-7. LinkedIn geoId for that country
+1. **Industries they serve** - VERY SPECIFIC company types their clients are (e.g., "Digital/Creative Agencies", "Early-stage SaaS", "Healthcare Providers", NOT just "Technology")
+2. **Company sizes** they target (e.g., "10-100 employees", "100-500 employees")
+3. **Geographies** they operate in (countries, states, cities)
+4. **Specific roles** they fill (be PRECISE - e.g., "Product Manager", "Network Engineer", NOT vague like "Tech roles")
+5. **Keywords** for Boolean search (variations of role names)
+6. **Primary country** for LinkedIn search
+7. **LinkedIn geoId** for that country
+
+CRITICAL Rules for Industries:
+- Be HYPER-SPECIFIC about company types (e.g., "Digital Agencies" NOT "Technology")
+- Look for phrases like "we work with", "our clients are", "we specialize in", "we serve"
+- Examples: "Creative Agencies", "SaaS Startups", "Healthcare Providers", "Manufacturing", "Financial Services Firms"
 
 CRITICAL Rules for Geography:
 - Look for ANY location indicators: address, phone numbers, currency symbols (£=UK, $=US, €=EU), domain extensions (.co.uk, .com, .ca)
@@ -41,7 +52,7 @@ Website Content:
 
 Output (JSON only, no explanation):
 {{
-  "industries": ["Industry 1", "Industry 2"],
+  "industries": ["SPECIFIC Company Type 1", "SPECIFIC Company Type 2"],
   "company_sizes": ["10-100 employees"],
   "geographies": ["United States", "California"],
   "roles_filled": [
@@ -55,34 +66,48 @@ Output (JSON only, no explanation):
   "primary_country": "United States",
   "linkedin_geo_id": "103644278"
 }}
+
+Examples:
+- Good: {{"industries": ["Digital Agencies", "Creative Agencies"], "roles_filled": ["Product Manager", "UX Designer"]}}
+- Bad: {{"industries": ["Technology"], "roles_filled": ["Tech roles"]}}
 """
 
 # Phase 3: Generate Boolean Search
-PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a STRICT, PRECISE Boolean search string based on the recruiter's ICP.
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create a STRICT, PRECISE Boolean search string that finds roles AT THE RIGHT TYPE OF COMPANIES.
+
+CRITICAL: The boolean search must filter by BOTH role AND company type to avoid irrelevant results.
 
 Rules:
-1. ALWAYS use quotes around each role (e.g., "Network Engineer")
-2. ALWAYS use OR operators between roles
-3. NEVER use vague terms (e.g., "Engineer" alone)
-4. Include variations of roles (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer")
-5. Keep search focused and specific
+1. ALWAYS include company type/industry filters using AND operators
+2. Use quotes around each role (e.g., "Product Manager")
+3. Use OR operators between role variations
+4. Use AND operators to combine roles WITH company type filters
+5. NEVER use vague terms alone
+
+Format: (role search) AND (company type search)
+
+Examples:
+- Good: ("Product Manager" OR "Senior Product Manager") AND ("digital agency" OR "creative agency" OR "marketing agency")
+- Good: ("Network Engineer" OR "Infrastructure Engineer") AND ("SaaS" OR "software company" OR "tech startup")
+- Bad: ("Product Manager" OR "Senior Product Manager") [missing company filter]
+- Bad: ("Engineer") [too vague]
 
 ICP Data:
 {icp_data}
 
+CRITICAL: Use the "industries" field to create the company type filter. Be specific!
+- If industries = ["Digital Agencies", "Creative Agencies"] → AND ("digital agency" OR "creative agency" OR "marketing agency")
+- If industries = ["SaaS Companies", "Tech Startups"] → AND ("SaaS" OR "software company" OR "tech startup")
+- If industries = ["Healthcare Providers"] → AND ("hospital" OR "healthcare provider" OR "medical center")
+
 Generate:
-1. Boolean search string (properly formatted with quotes and OR)
+1. Boolean search string combining roles AND company types
 2. URL-encoded version for LinkedIn
-3. Full LinkedIn URL with parameters:
-   - f_TPR=r86400 (last 24 hours)
-   - f_JT=F (full-time)
-   - geoId=<geo_id_from_icp>
-   - keywords=<url_encoded_boolean>
-   - sortBy=R (relevance)
+3. Full LinkedIn URL with parameters
 
 Output (JSON only):
 {{{{
-  "boolean_search": "(\"Role 1\" OR \"Role 1 Variation\" OR \"Role 2\" OR \"Role 2 Variation\")",
+  "boolean_search": "(role search) AND (company type search)",
   "linkedin_url": "https://www.linkedin.com/jobs/search/?f_JT=F&f_TPR=r86400&geoId=103644278&keywords=...&sortBy=R",
   "geo_id": "103644278"
 }}}}
@@ -122,6 +147,14 @@ Output (JSON only):
 # Phase 7: Validate ICP Fit
 PROMPT_VALIDATE_ICP_FIT = """You are an ICP matching expert. Determine if a company is a good fit for the recruiter's target profile.
 
+CRITICAL: The recruiter's "industries" field contains the TYPE OF COMPANIES they serve (e.g., "Digital Agencies", "SaaS Companies").
+You must match the COMPANY TYPE, not just the roles being hired.
+
+Example:
+- Recruiter industries: ["Digital Agencies", "Creative Agencies"]
+- Company: "Paddle" (payments/fintech company)
+- Result: is_good_fit = FALSE (wrong company type, even if roles match)
+
 Recruiter's ICP:
 {recruiter_icp}
 
@@ -133,11 +166,17 @@ Employee Count: {employee_count}
 Location: {location}
 Roles Hiring: {roles_hiring}
 
-Evaluate:
-1. Does company match target industries?
-2. Does company size match target range?
-3. Does geography match target locations?
-4. Do roles align with recruiter's specialization?
+Evaluation Rules:
+1. **Industry match is MANDATORY** - Company type must match recruiter's target industries
+2. Company size should match target range (flexible if close)
+3. Geography match is important but can be flexible
+4. Roles should align with recruiter's specialization
+
+Scoring:
+- If industries don't match → is_good_fit = false (automatic rejection)
+- If all criteria match well → match_score >= 0.8
+- If some criteria match → match_score 0.5-0.7
+- If industries don't match → match_score < 0.3
 
 Output (JSON only):
 {{
@@ -147,7 +186,7 @@ Output (JSON only):
   "size_match": true/false,
   "geography_match": true/false,
   "roles_match": true/false,
-  "reason": "Brief explanation"
+  "reason": "Brief explanation focusing on company type match"
 }}
 """
 

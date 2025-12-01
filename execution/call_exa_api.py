@@ -101,17 +101,30 @@ class ExaCompanyFinder:
         # Build criteria components
         criteria_parts = []
         
-        # Industry criteria
+        # CRITICAL: Industry criteria FIRST and SPECIFIC
+        # Industries should be company types (e.g., "Digital Agency", "SaaS Company")
         if industries:
-            industry_list = " or ".join(industries[:3]).lower()
-            criteria_parts.append(f"company in {industry_list} sector")
+            # Be more specific about company type matching
+            industry_descriptors = []
+            for industry in industries[:3]:
+                industry_lower = industry.lower()
+                # Add specific descriptors based on industry type
+                if "agency" in industry_lower or "agencies" in industry_lower:
+                    industry_descriptors.append(f"is a {industry_lower}")
+                elif "saas" in industry_lower or "software" in industry_lower:
+                    industry_descriptors.append(f"is a {industry_lower}")
+                else:
+                    industry_descriptors.append(f"operates in {industry_lower}")
+            
+            industry_clause = " or ".join(industry_descriptors)
+            criteria_parts.append(f"company {industry_clause}")
         
-        # Role/hiring criteria
+        # Role/hiring criteria (secondary filter)
         if roles:
             role_list = " or ".join(roles[:3]).lower()
-            criteria_parts.append(f"company hiring {role_list}")
+            criteria_parts.append(f"hiring for {role_list}")
         else:
-            criteria_parts.append("company actively hiring")
+            criteria_parts.append("actively hiring")
         
         # Size criteria
         criteria_parts.append("company has under 100 employees")
