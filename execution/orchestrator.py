@@ -23,6 +23,9 @@ from execution.generate_outreach_email import EmailGenerator
 from execution.find_contact_person import DecisionMakerFinder
 from execution.supabase_logger import SupabaseLogger
 from execution.send_webhook_response import send_webhook
+from execution.call_exa_api import ExaCompanyFinder
+from execution.extract_jobs_from_website import JobExtractor
+from execution.extract_icp_deep import DeepICPExtractor
 from config import ai_prompts
 from config.config import TMP_DIR
 
@@ -64,26 +67,28 @@ class Orchestrator:
             # Initialize OpenAI caller (reuse throughout pipeline)
             self.openai_caller = OpenAICaller(run_id=self.run_id)
             
-            # Phase 2: Extract ICP from Client Website
-            print("🎯 Phase 2: Extracting recruiter ICP from client website...")
-            openai = self.openai_caller
+            # Phase 2: Extract ICP from Client Website (DEEP ANALYSIS)
+            print("🎯 Phase 2: Deep ICP extraction from client website...")
             
-            # Scrape client website
-            website_scraper = WebsiteScraper(run_id=self.run_id)
-            website_content = website_scraper.scrape_http(validated.get("client_website", ""))[1] or validated.get("client_website", "")
-            
-            # Generate ICP extraction prompt
-            icp_prompt = ai_prompts.format_icp_prompt(website_content or validated.get("client_website", ""))
-            
-            # Call OpenAI to extract ICP
-            icp_response = openai.call_with_retry(
-                prompt=icp_prompt,
-                model="gpt-4o-mini",
-                response_format="json"
-            )
+            # Use deep ICP extractor with Playwright for better analysis
+            deep_extractor = DeepICPExtractor(run_id=self.run_id)
             
             try:
+                self.recruiter_icp = deep_extractor.extract_icp(validated.get("client_website", ""))
+            except Exception as e:
+                print(f"  ⚠️ Deep extraction failed, falling back to basic extraction: {e}")
+                # Fallback to original HTTP-based extraction
+                website_scraper = WebsiteScraper(run_id=self.run_id)
+                website_content = website_scraper.scrape_http(validated.get("client_website", ""))[1] or validated.get("client_website", "")
+                icp_prompt = ai_prompts.format_icp_prompt(website_content or validated.get("client_website", ""))
+                icp_response = self.openai_caller.call_with_retry(
+                    prompt=icp_prompt,
+                    model="gpt-4o-mini",
+                    response_format="json"
+                )
                 self.recruiter_icp = json.loads(icp_response)
+            
+            try:
                 # Add country code mapping for LinkedIn URL
                 country_to_code = {
                     "United States": "US",
@@ -115,7 +120,7 @@ class Orchestrator:
             print("🔍 Phase 3: Generating Boolean search query...")
             boolean_prompt = ai_prompts.format_boolean_search_prompt(self.recruiter_icp)
             
-            boolean_response = openai.call_with_retry(
+            boolean_response = self.openai_caller.call_with_retry(
                 prompt=boolean_prompt,
                 model="gpt-4o-mini",
                 response_format="text"
@@ -146,13 +151,14 @@ class Orchestrator:
             
             print(f"✅ Boolean search: {self.boolean_search}")
             
-            # Phase 4: Scrape LinkedIn Jobs
+            # Phase 4: Scrape LinkedIn Jobs (with Exa fallback for niche ICPs)
             print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 100)} max)...")
             scraper = ApifyLinkedInScraper(run_id=self.run_id)
             
             # Apify requires minimum 100 jobs
             jobs_to_scrape = max(100, validated.get('max_jobs_to_scrape', 100))
             minimum_acceptable_jobs = 30  # Fallback to 7 days if fewer than 30 jobs found
+            exa_fallback_threshold = 10  # If < 10 jobs, ICP too niche, use Exa fallback
             
             # Try 24 hours first (fresher results)
             print(f"🔄 Attempt 1: Scraping past 24 hours (r86400)...")
@@ -180,11 +186,64 @@ class Orchestrator:
             else:
                 print(f"✅ Got {len(self.jobs_scraped)} jobs in 24h - using fresh results")
             
+            # NEW: If still insufficient, trigger Exa fallback workflow
+            if len(self.jobs_scraped) < exa_fallback_threshold:
+                print(f"\n🔄 ICP TOO NICHE: Only {len(self.jobs_scraped)} jobs found on LinkedIn")
+                print(f"🌐 Activating Exa fallback workflow...")
+                
+                # Use Exa to find companies directly
+                exa_finder = ExaCompanyFinder(run_id=self.run_id)
+                exa_companies = exa_finder.find_companies(
+                    icp_data=self.recruiter_icp,
+                    max_results=20  # Get more companies to filter down
+                )
+                
+                if len(exa_companies) > 0:
+                    print(f"✅ Exa found {len(exa_companies)} potential companies")
+                    
+                    # Extract jobs from company websites
+                    job_extractor = JobExtractor(run_id=self.run_id)
+                    companies_with_jobs = job_extractor.extract_jobs_from_companies(exa_companies)
+                    
+                    # Validate which companies are actually hiring
+                    companies_hiring, companies_not_hiring = job_extractor.validate_hiring_activity(companies_with_jobs)
+                    
+                    if len(companies_hiring) > 0:
+                        print(f"✅ Exa fallback successful: {len(companies_hiring)} companies actively hiring")
+                        
+                        # Convert Exa format to LinkedIn format for consistency
+                        self.jobs_scraped = []
+                        for company in companies_hiring:
+                            for job in company.get("jobs", []):
+                                linkedin_format_job = {
+                                    "companyName": company["name"],
+                                    "companyDescription": company.get("description", ""),
+                                    "companyWebsite": company.get("company_url", ""),
+                                    "title": job.get("job_title", ""),
+                                    "description": job.get("description", ""),
+                                    "descriptionText": job.get("description", ""),
+                                    "link": job.get("job_url", ""),
+                                    "location": job.get("location", "Remote"),
+                                    "source": "exa_fallback"
+                                }
+                                self.jobs_scraped.append(linkedin_format_job)
+                        
+                        print(f"✅ Converted {len(self.jobs_scraped)} jobs from Exa to LinkedIn format")
+                    else:
+                        print(f"⚠️ Exa fallback found companies but none are hiring")
+                        if len(self.jobs_scraped) == 0:
+                            raise Exception("No jobs found via LinkedIn or Exa fallback")
+                else:
+                    print(f"⚠️ Exa fallback found 0 companies")
+                    if len(self.jobs_scraped) == 0:
+                        raise Exception("No jobs found via LinkedIn or Exa fallback")
+            
             self.stats["total_jobs_scraped"] = len(self.jobs_scraped)
-            print(f"✅ Scraped {len(self.jobs_scraped)} jobs from LinkedIn")
+            self.stats["data_source"] = "exa_fallback" if len(self.jobs_scraped) > 0 and self.jobs_scraped[0].get("source") == "exa_fallback" else "linkedin"
+            print(f"✅ Total: {len(self.jobs_scraped)} jobs scraped (source: {self.stats.get('data_source', 'linkedin')})")
             
             if not self.jobs_scraped:
-                raise Exception("No jobs scraped from LinkedIn")
+                raise Exception("No jobs scraped from LinkedIn or Exa fallback")
             
             # Phase 5: Extract Unique Companies
             print("🏢 Phase 5: Extracting unique companies from job postings...")

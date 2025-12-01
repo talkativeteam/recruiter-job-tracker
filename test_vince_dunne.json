@@ -1,0 +1,9 @@
+{
+  "client_name": "Vince Dunne",
+  "client_email": "vince@dunnesearchgroup.com",
+  "client_website": "https://dunnesearchgroup.com/",
+  "email_sender_name": "Your Name",
+  "email_sender_address": "you@example.com",
+  "max_jobs_to_scrape": 100,
+  "recruiter_timezone": "EST"
+}

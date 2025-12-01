@@ -88,8 +88,7 @@ class DecisionMakerFinder:
                 
                 result = self.exa.search(
                     query,
-                    num_results=5,  # Get more results to find valid profiles
-                    use_autoprompt=True
+                    num_results=5  # Get more results to find valid profiles
                 )
                 
                 self.search_count += 1

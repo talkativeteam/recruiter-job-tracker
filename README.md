@@ -5,14 +5,15 @@ Enterprise-grade AI agent system for **Talkative** - helping recruiters land mor
 ## Overview
 
 This system takes a recruiter's information (name, email, website) and:
-1. ✅ Analyzes their Ideal Client Profile (ICP)
-2. ✅ Identifies roles they fill
+1. ✅ **Deep ICP Analysis** - Uses Playwright to analyze About, Services, Sectors pages
+2. ✅ Identifies specific roles and industries (e.g., "Sales Director in Biotech")
 3. ✅ Generates precise LinkedIn Boolean searches
 4. ✅ Scrapes job postings from LinkedIn
-5. ✅ Validates companies are direct hirers (NOT recruiters)
-6. ✅ Prioritizes multi-role companies
-7. ✅ Finds decision-makers for each company
-8. ✅ Generates peer-to-peer outreach emails
+5. ✅ **Automatic Exa Fallback** - Finds niche companies when LinkedIn returns <10 jobs
+6. ✅ Validates companies are direct hirers (NOT recruiters)
+7. ✅ Prioritizes multi-role companies
+8. ✅ Finds decision-makers for each company
+9. ✅ Generates peer-to-peer outreach emails
 
 ## Architecture
 
@@ -109,14 +110,27 @@ python execution/scrape_website.py \
   --run-id <run-id>
 ```
 
-### Phase 2: Identify ICP
+### Phase 2: Deep ICP Extraction (NEW!)
 ```bash
-python execution/call_openai.py \
-  --prompt-type identify_icp \
-  --input .tmp/recruiter_website.md \
-  --output .tmp/recruiter_icp.json \
-  --run-id <run-id>
+# NEW: Uses Playwright to analyze multiple pages (About, Services, Sectors)
+# Provides significantly better ICP accuracy, especially for niche industries
+
+python execution/extract_icp_deep.py \
+  --url "https://recruitingfirm.com"
+
+# Output example for biotech recruiter:
+# Industries: Biotech, Pharmaceutical, Healthcare Technology
+# Roles: Sales Director, Marketing Manager, Business Development Manager
+# Company Size: 10-100 employees
+# Geography: United States, California
 ```
+
+**Improvements over old method:**
+- ✅ Analyzes 4+ pages instead of just homepage
+- ✅ Handles JavaScript-rendered content with Playwright
+- ✅ Extracts specific role levels (Director, Manager, VP)
+- ✅ Identifies niche industries (e.g., "Biotech" not just "Healthcare")
+- ✅ Falls back to HTTP scraping if Playwright unavailable
 
 ### Phase 3: Generate Boolean Search
 ```bash
@@ -126,7 +140,7 @@ python execution/generate_linkedin_url.py \
   --run-id <run-id>
 ```
 
-### Phase 4: Scrape LinkedIn Jobs
+### Phase 4: Scrape LinkedIn Jobs (with Automatic Exa Fallback)
 ```bash
 python execution/call_apify_linkedin_scraper.py \
   --url-file .tmp/linkedin_boolean_search.json \
@@ -134,6 +148,17 @@ python execution/call_apify_linkedin_scraper.py \
   --max-jobs 50 \
   --run-id <run-id>
 ```
+
+**Automatic Fallback for Niche ICPs:**
+
+If LinkedIn returns fewer than 10 jobs (indicating the ICP is too niche), the system automatically:
+1. Switches to Exa API to find relevant companies
+2. Scrapes company career pages directly
+3. Extracts job listings using AI
+4. Validates hiring activity
+5. Converts to LinkedIn format and continues pipeline
+
+See `directives/exa_fallback_workflow.md` for details.
 
 ### Phase 5: Filter Direct Hirers
 ```bash
@@ -232,11 +257,17 @@ The system prioritizes cost-effective methods:
 - **gpt-4o-mini** - For most tasks (~$0.0002 per 1K tokens)
 - **gpt-4-turbo-preview** - ONLY for client-facing email (~$0.01 per 1K tokens)
 
-**Typical Cost Per Run**: $0.25-0.35
-- OpenAI: $0.15 (30-40 calls)
-- Apify: $0.05 (1 run, 50 jobs)
-- Exa: $0.004 (4 searches)
-- Playwright: $0.00 (free)
+**Typical Cost Per Run**: 
+- **Standard (LinkedIn)**: $0.25-0.35
+  - OpenAI: $0.15 (30-40 calls)
+  - Apify: $0.05 (1 run, 50 jobs)
+  - Exa: $0.004 (4 searches)
+  - Playwright: $0.00 (free)
+- **Niche ICP (Exa Fallback)**: $0.30-0.40
+  - OpenAI: $0.20 (40-50 calls, includes job extraction)
+  - Exa: $0.001 (company search)
+  - Website scraping: $0.00 (HTTP/Playwright)
+  - Apify: $0.00 (not used in fallback)
 
 ## Key Features
 
@@ -258,6 +289,13 @@ When errors occur:
 - HTTP before Playwright before Bright Data
 - gpt-4o-mini for analysis, gpt-4-turbo-preview for emails only
 - Apify's `scrapeCompany: true` eliminates extra scraping
+
+### ✅ Intelligent Fallback for Niche ICPs
+- Detects when LinkedIn returns insufficient results (< 10 jobs)
+- Automatically switches to Exa + career page scraping
+- Finds companies directly rather than relying on job boards
+- Perfect for specialized roles: quantum computing, rare medical specialties, emerging tech
+- Seamlessly integrates back into main pipeline
 
 ### ✅ Enterprise-Ready
 - Real-time Supabase logging

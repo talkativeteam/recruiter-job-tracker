@@ -261,6 +261,72 @@ def format_decision_maker_prompt(company_size: int, role_title: str,
         role_type=role_type
     )
 
+def format_exa_criteria_prompt(icp_data: dict, max_company_size: int = 100, jobs_posted_timeframe: str = "last 7 days") -> str:
+    """Format the Exa criteria generation prompt"""
+    from datetime import datetime, timedelta
+    
+    # Calculate date range
+    today = datetime.now()
+    if "7 days" in jobs_posted_timeframe:
+        days = 7
+    elif "14 days" in jobs_posted_timeframe:
+        days = 14
+    elif "30 days" in jobs_posted_timeframe:
+        days = 30
+    else:
+        days = 7
+    
+    start_date = (today - timedelta(days=days)).strftime("%B %d, %Y").lower()
+    end_date = today.strftime("%B %d, %Y").lower()
+    
+    roles = icp_data.get("roles_filled", icp_data.get("roles", []))
+    industries = icp_data.get("industries", [])
+    
+    exa_search_query = f"{industries[0] if industries else 'companies'} hiring {roles[0] if roles else 'roles'}"
+    
+    prompt = f"""You are converting a natural language search query into structured criteria for the Exa API.
+
+USER'S SEARCH QUERY:
+{exa_search_query}
+
+ADDITIONAL CONTEXT:
+- Max Company Size: {max_company_size} employees
+- Jobs Posted Within: {jobs_posted_timeframe}
+- Today's Date: {end_date}
+- Date Range: {start_date} to {end_date}
+
+RECRUITER ICP:
+- Industries: {', '.join(industries) if industries else 'any'}
+- Roles: {', '.join(roles[:3]) if roles else 'any'}
+
+Convert this query into 3-5 specific, atomic criteria statements that Exa can use to filter companies.
+
+REQUIREMENTS:
+1. Each criterion should be ONE specific requirement
+2. Include company characteristics (industry, size, type)
+3. Include hiring signals (job postings, timing) - be FLEXIBLE with dates
+4. Include exclusions (what NOT to include)
+5. Use lowercase, be specific and measurable
+6. Be LESS STRICT - allow for broader matches
+
+IMPORTANT: Make criteria LESS restrictive to get more results. Focus on:
+- Core industry match (not exact sub-niche)
+- General company size range (not exact)
+- Recent hiring activity (not exact date ranges)
+
+EXAMPLE OUTPUT (JSON array):
+[
+  "company is in {industries[0] if industries else 'tech'} or related sector",
+  "company has under {max_company_size} employees",
+  "company posted about hiring recently",
+  "company is not a recruitment or staffing firm"
+]
+
+Generate criteria as a JSON array of strings. Be BROAD to capture more companies.
+"""
+    
+    return prompt
+
 def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: str = None, 
                        sender_email: str = None, email_thread: str = None, recruiter_timezone: str = None) -> str:
     """Format the outreach email generation prompt"""

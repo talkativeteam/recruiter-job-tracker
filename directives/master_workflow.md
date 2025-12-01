@@ -57,12 +57,18 @@ JSON with:
 **Output**: `.tmp/linkedin_boolean_search.json`
 **Supabase Log**: `phase: "generating_boolean_search"`
 
-### Phase 4: Scrape LinkedIn Jobs
+### Phase 4: Scrape LinkedIn Jobs (with Exa Fallback)
 **Directive**: `directives/scrape_linkedin_jobs.md`
 **Tool**: `execution/call_apify_linkedin_scraper.py`
 **Input**: `.tmp/linkedin_boolean_search.json`
 **Output**: `.tmp/scraped_jobs/linkedin_jobs_raw.json`
 **Supabase Log**: `phase: "scraping_linkedin_jobs"`, `companies_found: <count>`
+
+**Fallback**: If LinkedIn returns < 10 jobs (ICP too niche):
+- **Directive**: `directives/exa_fallback_workflow.md`
+- **Tools**: `execution/call_exa_api.py`, `execution/extract_jobs_from_website.py`
+- Uses Exa to find companies → scrapes career pages → extracts jobs
+- Converts to LinkedIn format and continues pipeline normally
 
 ### Phase 5: Filter Direct Hirers
 **Directive**: `directives/filter_direct_hirers.md`
