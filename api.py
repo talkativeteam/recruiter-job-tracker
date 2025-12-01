@@ -105,13 +105,12 @@ def process_job():
         # Send to webhook
         webhook_sent = send_to_webhook(webhook_payload)
         
-        # Prepare response
+        # Return simple status response (data goes only to webhook)
         response = {
-            "status": "success",
+            "status": "success" if webhook_sent else "webhook_failed",
             "run_id": run_id,
             "runtime_seconds": int(runtime_seconds),
-            "webhook_sent": webhook_sent,
-            "data": webhook_payload if not webhook_sent else None,
+            "message": "Results sent to webhook" if webhook_sent else "Failed to send webhook"
         }
         
         print(f"\n✅ Run completed in {runtime_seconds:.1f}s")
