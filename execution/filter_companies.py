@@ -182,7 +182,7 @@ class CompanyFilter:
                 run_id=self.run_id,
                 phase="filtering_direct_hirers",
                 companies_validated=unique_validated_companies,
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI"
             )
         
         return validated_companies

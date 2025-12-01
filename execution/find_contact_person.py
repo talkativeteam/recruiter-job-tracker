@@ -176,7 +176,7 @@ class DecisionMakerFinder:
             self.logger.update_phase(
                 run_id=self.run_id,
                 phase="finding_decision_makers",
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}, ${cost:.3f} Exa"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI, ${cost:.3f} Exa"
             )
         
         return results

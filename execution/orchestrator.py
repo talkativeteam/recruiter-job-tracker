@@ -40,6 +40,7 @@ class Orchestrator:
         self.jobs_scraped = []
         self.verified_companies = []
         self.outreach_email = ""
+        self.exa_finder = None  # Track Exa usage
         self.openai_caller = None  # Will be initialized once
         self.stats = {
             "total_jobs_scraped": 0,
@@ -192,8 +193,8 @@ class Orchestrator:
                 print(f"🌐 Activating Exa fallback workflow...")
                 
                 # Use Exa to find companies directly
-                exa_finder = ExaCompanyFinder(run_id=self.run_id)
-                exa_companies = exa_finder.find_companies(
+                self.exa_finder = ExaCompanyFinder(run_id=self.run_id)
+                exa_companies = self.exa_finder.find_companies(
                     icp_data=self.recruiter_icp,
                     max_results=20  # Get more companies to filter down
                 )
@@ -407,10 +408,27 @@ class Orchestrator:
             print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
             
             # Calculate total costs
-            openai_cost = self.openai_caller.get_cost_estimate() if self.openai_caller else "$0.00"
-            apify_cost = "$0.05"  # Fixed Apify cost per run
-            total_cost_str = f"{openai_cost} + {apify_cost} Apify"
+            openai_cost = self.openai_caller.get_cost_estimate() if self.openai_caller else 0.0
+            exa_cost = self.exa_finder.get_cost_estimate() if self.exa_finder else 0.0
+            
+            # Only add Apify cost if we actually used LinkedIn (not Exa fallback)
+            data_source = self.stats.get("data_source", "linkedin")
+            apify_cost = 0.05 if data_source == "linkedin" else 0.0
+            
+            total_cost = openai_cost + exa_cost + apify_cost
+            
+            # Build detailed cost breakdown
+            cost_parts = []
+            if openai_cost > 0:
+                cost_parts.append(f"${openai_cost:.3f} OpenAI")
+            if exa_cost > 0:
+                cost_parts.append(f"${exa_cost:.3f} Exa")
+            if apify_cost > 0:
+                cost_parts.append(f"${apify_cost:.2f} Apify")
+            
+            total_cost_str = f"${total_cost:.3f} ({' + '.join(cost_parts)})"
             self.stats["total_cost"] = total_cost_str
+            print(f"💰 Total cost: {total_cost_str}")
             
             # Phase 10: Send Webhook Response
             print("🚀 Phase 10: Sending webhook response...")

@@ -15,6 +15,8 @@ class ExaCompanyFinder:
     def __init__(self, run_id: Optional[str] = None):
         self.run_id = run_id
         self.exa_client = Exa(api_key=EXA_API_KEY) if EXA_API_KEY else None
+        self.search_count = 0
+        self.total_results = 0
         
     def find_companies(self, icp_data: Dict[str, Any], max_results: int = 20) -> List[Dict[str, Any]]:
         """
@@ -43,6 +45,10 @@ class ExaCompanyFinder:
                 text={"max_characters": 2000}
             )
             
+            # Track usage for cost calculation
+            self.search_count += 1
+            self.total_results += len(results.results)
+            
             # Parse results into company format with deduplication
             companies = []
             seen_domains = set()
@@ -57,11 +63,22 @@ class ExaCompanyFinder:
                         seen_domains.add(domain)
             
             print(f"✅ Exa found {len(companies)} unique companies")
+            cost = self.get_cost_estimate()
+            print(f"💰 Exa API cost: ${cost:.4f} ({self.search_count} searches, {self.total_results} results)")
             return companies
             
         except Exception as e:
             print(f"❌ Exa API error: {e}")
             return []
+    
+    def get_cost_estimate(self) -> float:
+        """
+        Calculate Exa API cost
+        Pricing: $5 per 1000 searches with contents
+        Reference: https://docs.exa.ai/reference/pricing
+        """
+        cost_per_search = 0.005  # $5 per 1000 searches = $0.005 per search
+        return self.search_count * cost_per_search
     
     def _build_exa_criteria(self, icp_data: Dict[str, Any]) -> str:
         """

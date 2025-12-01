@@ -180,14 +180,18 @@ class OpenAICaller:
         
         return response
     
-    def get_cost_estimate(self) -> str:
-        """Get estimated cost of all OpenAI calls"""
+    def get_cost_estimate(self) -> float:
+        """Get estimated cost of all OpenAI calls (returns numeric value)"""
         # Pricing per 1K tokens
         # gpt-4o-mini: $0.00015 input, $0.0006 output (avg ~0.0002)
         # gpt-4-turbo-preview: $0.01 input, $0.03 output (avg ~0.015)
         # Rough estimate: $0.0005 per 1K tokens average across models
         estimated_cost = (self.total_tokens / 1000) * 0.0005
-        return f"${estimated_cost:.2f} OpenAI"
+        return estimated_cost
+    
+    def get_cost_estimate_str(self) -> str:
+        """Get formatted cost string"""
+        return f"${self.get_cost_estimate():.2f} OpenAI"
 
 def main():
     parser = argparse.ArgumentParser(description="Call OpenAI API")
@@ -232,7 +236,7 @@ def main():
                 f.write(result)
         
         print(f"✅ Saved output to {args.output}")
-        print(f"💰 Cost: {caller.get_cost_estimate()}")
+        print(f"\n💰 Cost: {caller.get_cost_estimate_str()}")
     else:
         print("❌ OpenAI call failed")
         sys.exit(1)

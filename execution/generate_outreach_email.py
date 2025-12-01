@@ -139,7 +139,7 @@ Your call."""
             self.logger.update_phase(
                 run_id=self.run_id,
                 phase="email_generated",
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI"
             )
 
 def main():

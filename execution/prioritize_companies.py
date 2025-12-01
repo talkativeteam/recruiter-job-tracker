@@ -157,7 +157,7 @@ class CompanyPrioritizer:
             self.logger.update_phase(
                 run_id=self.run_id,
                 phase="prioritizing_multi_role",
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI"
             )
         
         return prioritized
@@ -215,7 +215,7 @@ class CompanyPrioritizer:
                 run_id=self.run_id,
                 phase="selecting_top_companies",
                 final_companies_selected=len(selected),
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI"
             )
         
         return selected
@@ -262,7 +262,7 @@ class CompanyPrioritizer:
                 run_id=self.run_id,
                 phase="selecting_top_companies",
                 final_companies_selected=len(selected),
-                cost_of_run=f"${self.openai_caller.get_cost_estimate()}"
+                cost_of_run=f"${self.openai_caller.get_cost_estimate():.3f} OpenAI"
             )
         
         return selected
