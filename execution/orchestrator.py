@@ -171,11 +171,11 @@ class Orchestrator:
             print(f"✅ Boolean search: {self.boolean_search}")
             
             # Phase 4: Scrape LinkedIn Jobs (with Exa fallback for niche ICPs)
-            print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 100)} max)...")
+            print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 500)} max)...")
             scraper = ApifyLinkedInScraper(run_id=self.run_id)
             
             # STRATEGY: Pull MORE jobs from LinkedIn and let AI validation filter
-            jobs_to_scrape = max(150, validated.get('max_jobs_to_scrape', 150))
+            jobs_to_scrape = max(500, validated.get('max_jobs_to_scrape', 500))
             minimum_acceptable_jobs = 20  # Fallback to 7 days if fewer than 20 jobs found
             exa_fallback_threshold = 5  # Only use Exa if < 5 jobs (very niche ICP)
             
