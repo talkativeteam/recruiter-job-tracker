@@ -647,7 +647,6 @@ class Orchestrator:
             
             # Phase 10: Send Response
             print("📤 Phase 10: Sending response...")
-            response_sender = WebhookResponseSender(run_id=self.run_id)
             
             final_output = {
                 "run_metadata": {
@@ -665,7 +664,7 @@ class Orchestrator:
             
             webhook_url = validated.get("callback_webhook_url")
             if webhook_url:
-                response_sender.send_webhook(webhook_url, final_output)
+                send_webhook(webhook_url, final_output)
                 print(f"✅ Sent response to webhook: {webhook_url}")
             
             if self.logger and self.run_id:
