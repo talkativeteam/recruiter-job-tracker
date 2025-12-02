@@ -608,6 +608,9 @@ class Orchestrator:
             self.stats["data_source"] = "exa_direct"
             self.stats["final_companies_selected"] = len(top_companies)
             
+            # Store verified companies
+            self.verified_companies = top_companies
+            
             # Format companies for email
             verified_companies = []
             for company_data in enriched_companies:
@@ -657,7 +660,7 @@ class Orchestrator:
                 "recruiter_icp": self.recruiter_icp,
                 "stats": self.stats,
                 "verified_companies": verified_companies,
-                "outreach_email": outreach_email
+                "outreach_email": self.outreach_email
             }
             
             webhook_url = validated.get("callback_webhook_url")
