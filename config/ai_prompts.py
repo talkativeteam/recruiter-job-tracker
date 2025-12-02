@@ -307,6 +307,40 @@ Companies data to include:
 
 Generate ONLY the companies section (one entry per company):"""
 
+# Fallback prompt when no explicit job postings are present
+PROMPT_GENERATE_EMAIL_NO_ROLES = """You are writing to a recruiter about high-signal companies worth approaching now. No explicit job postings were captured, so focus on credible signals and why outreach makes sense.
+
+EXACT FORMAT - DO NOT DEVIATE:
+
+{recruiter_name},
+
+Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
+
+[GENERATE ONLY THIS SECTION - ONE ENTRY PER COMPANY]
+
+Company Name — Why On Our Radar
+[1-2 lines: what they do, key details]
+Signals: [2 short signals from intel e.g. growth, team expansion, funding, new product]
+Suggested roles to approach: [2 roles likely relevant]
+Website: [URL]
+
+[CONTINUE FOR ALL COMPANIES - ONE PARAGRAPH PER COMPANY]
+
+CRITICAL RULES:
+1. ONLY generate the companies section (formatted entries)
+2. DO NOT generate the opening line or closing section - those are fixed
+3. Do NOT apologize or say there are no openings
+4. Use insider intelligence to craft Signals (concise, factual)
+5. 4-5 lines per company max
+6. Use ACTUAL company names and real websites
+7. Plain text only, NO JSON, NO MARKDOWN
+8. NEVER repeat the same company twice
+
+Companies data to include:
+{companies_data}
+
+Generate ONLY the companies section (one entry per company):"""
+
 # Prompt helper functions
 def format_icp_prompt(website_content: str) -> str:
     """Format the ICP identification prompt"""
@@ -446,6 +480,11 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
         # Add all roles from this entry
         companies_grouped[company_name]['roles_hiring'].extend(company['roles_hiring'])
     
+    # Determine if any roles exist across all companies
+    total_roles = 0
+    for c in companies_data:
+        total_roles += len(c.get('roles_hiring', []))
+
     # Format companies data with insider intelligence
     companies_text = ""
     for i, (company_name, company) in enumerate(companies_grouped.items(), 1):
@@ -465,16 +504,24 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
         else:
             companies_text += f"  Description: {company['company_description'][:200]}\n"
         
-        # Show count of roles
-        role_count = len(company['roles_hiring'])
-        companies_text += f"  Open Roles ({role_count} total):\n"
-        
-        for role in company['roles_hiring']:
-            posted_date = role.get('posted_at', '')
-            job_url = role.get('job_url', '')
-            companies_text += f"    - {role['job_title']} (Posted: {posted_date})\n"
-            if job_url:
-                companies_text += f"      Full Job Link: {job_url}\n"
+        # Only include roles section if we actually have roles across dataset
+        if total_roles > 0:
+            role_count = len(company['roles_hiring'])
+            companies_text += f"  Open Roles ({role_count} total):\n"
+            for role in company['roles_hiring']:
+                posted_date = role.get('posted_at', '')
+                job_url = role.get('job_url', '')
+                companies_text += f"    - {role['job_title']} (Posted: {posted_date})\n"
+                if job_url:
+                    companies_text += f"      Full Job Link: {job_url}\n"
+        else:
+            # Provide concise signals to help the model craft value without roles
+            intel = company.get('insider_intelligence') or {}
+            signals = intel.get('insider_details') or []
+            if signals:
+                companies_text += "  Signals:\n"
+                for s in signals[:3]:
+                    companies_text += f"    - {s}\n"
     
     # Add email thread context if provided
     email_thread_context = ""
@@ -487,7 +534,8 @@ def format_email_prompt(recruiter_name: str, companies_data: list, sender_name: 
     if not recruiter_timezone:
         recruiter_timezone = "GMT"
     
-    return PROMPT_GENERATE_EMAIL.format(
+    prompt_template = PROMPT_GENERATE_EMAIL if total_roles > 0 else PROMPT_GENERATE_EMAIL_NO_ROLES
+    return prompt_template.format(
         recruiter_name=recruiter_name,
         sender_name=sender_name or "[Your Name]",
         sender_email=sender_email or "",
