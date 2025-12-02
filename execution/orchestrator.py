@@ -603,37 +603,40 @@ class Orchestrator:
                         company["enrichment"] = {}
                         company["relevance_score"] = 0
                 
-                # NOW select top 4 based on enrichment relevance scores
-                exa_companies_sorted = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
-                top_companies = exa_companies_sorted[:4]
-                print(f"✅ Selected top {len(top_companies)} companies based on enrichment scores")
-                
-                # Use enriched data for rest of pipeline
-                enriched_companies = [c["enrichment"] for c in top_companies]
-
-                # NEW: Extract jobs from top companies' career pages (ATS-aware via Playwright)
-                print(f"🔍 Extracting jobs from top {len(top_companies)} companies (ATS-aware)...")
+                # Extract ATS jobs for ALL enriched companies first (ATS-aware via Playwright)
+                print(f"🔍 Extracting jobs from ALL {len(exa_companies)} companies (ATS-aware)...")
                 from execution.extract_jobs_from_website import JobExtractor
                 job_extractor = JobExtractor(run_id=self.run_id)
                 companies_for_jobs = []
-                for c in top_companies:
+                for c in exa_companies:
                     companies_for_jobs.append({
                         "name": c["name"],
                         "company_url": c.get("company_url", ""),
                         "careers_url": c.get("careers_url", c.get("company_url", ""))
                     })
                 companies_with_jobs = job_extractor.extract_jobs_from_companies(companies_for_jobs)
-                # Map jobs back into enriched_companies structure
+                # Map jobs back into enrichment for all companies
                 name_to_jobs = {cj["name"]: cj.get("jobs", []) for cj in companies_with_jobs}
-                for ec in enriched_companies:
-                    jobs = name_to_jobs.get(ec.get("company_name"), [])
-                    ec["roles_hiring"] = [
-                        {
-                            "job_title": j.get("job_title"),
-                            "job_url": j.get("job_url"),
-                            "posted_at": ""
-                        } for j in jobs
-                    ]
+                for company in exa_companies:
+                    enrichment = company.get("enrichment", {})
+                    jobs = name_to_jobs.get(company["name"], [])
+                    if enrichment:
+                        enrichment["roles_hiring"] = [
+                            {
+                                "job_title": j.get("job_title"),
+                                "job_url": j.get("job_url"),
+                                "posted_at": ""
+                            } for j in jobs
+                        ]
+                    company["job_count"] = len(jobs)
+
+                # NOW select top 4 based on enrichment relevance scores (after ATS parsing)
+                exa_companies_sorted = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
+                top_companies = exa_companies_sorted[:4]
+                print(f"✅ Selected top {len(top_companies)} companies based on enrichment scores (post-ATS)")
+                
+                # Use enriched data for rest of pipeline
+                enriched_companies = [c.get("enrichment", {}) for c in top_companies]
                 
             except Exception as e:
                 print(f"⚠️ Company enrichment failed: {e}")
