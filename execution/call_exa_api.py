@@ -111,33 +111,28 @@ class ExaCompanyFinder:
         date_start = fourteen_days_ago.strftime("%B %d, %Y").lower()
         date_end = today.strftime("%B %d, %Y").lower()
         
-        # Build criteria components
+        # Build criteria components (broader by design)
         criteria_parts = []
         
         # CRITICAL: Industry criteria FIRST and SPECIFIC
         # Industries should be company types (e.g., "Digital Agency", "SaaS Company")
         if industries:
-            # Be more specific about company type matching
-            industry_descriptors = []
-            for industry in industries[:3]:
-                industry_lower = industry.lower()
-                # Add specific descriptors based on industry type
-                if "agency" in industry_lower or "agencies" in industry_lower:
-                    industry_descriptors.append(f"is a {industry_lower}")
-                elif "saas" in industry_lower or "software" in industry_lower:
-                    industry_descriptors.append(f"is a {industry_lower}")
-                else:
-                    industry_descriptors.append(f"operates in {industry_lower}")
-            
-            industry_clause = " or ".join(industry_descriptors)
-            criteria_parts.append(f"company {industry_clause}")
+            # Use up to 6 industries and allow related sectors
+            inds = [i.lower() for i in industries[:6]]
+            if any(i in " ".join(inds) for i in ["medtech", "medical", "health"]):
+                # Enrich with common sub-sectors if medtech/health present
+                inds.extend(["radiology", "urology", "neurovascular", "cardiology", "robotics", "patient care", "surgical"])
+            industry_clause = " or ".join(sorted(set(inds)))
+            criteria_parts.append(f"company operates in {industry_clause} or related sectors")
         
         # Role/hiring criteria (secondary filter)
-        if roles:
-            role_list = " or ".join(roles[:3]).lower()
-            criteria_parts.append(f"hiring for {role_list}")
-        else:
-            criteria_parts.append("actively hiring")
+        role_families = [
+            "c-suite", "leadership", "sales", "commercial", "engineering",
+            "technical", "operations", "marketing", "clinical"
+        ]
+        role_terms = [r.lower() for r in roles[:8]] if roles else []
+        role_union = sorted(set(role_terms + role_families))
+        criteria_parts.append(f"hiring for {' or '.join(role_union)}")
         
         # Size criteria (broadened)
         criteria_parts.append("company has under 200 employees")

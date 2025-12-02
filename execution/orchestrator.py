@@ -77,11 +77,23 @@ class Orchestrator:
             try:
                 self.recruiter_icp = deep_extractor.extract_icp(validated.get("client_website", ""))
             except Exception as e:
-                print(f"  ⚠️ Deep extraction failed, falling back to basic extraction: {e}")
-                # Fallback to original HTTP-based extraction
+                print(f"  ⚠️ Deep extraction failed, falling back to broader multi-page HTTP/Playwright extraction: {e}")
+                # Fallback: try homepage + common subpages with HTTP → Playwright chain
                 website_scraper = WebsiteScraper(run_id=self.run_id)
-                website_content = website_scraper.scrape_http(validated.get("client_website", ""))[1] or validated.get("client_website", "")
-                icp_prompt = ai_prompts.format_icp_prompt(website_content or validated.get("client_website", ""))
+                base_url = validated.get("client_website", "")
+                candidate_paths = ["", "/team-build", "/sectors", "/industries", "/specialisms", "/expertise", "/what-we-do", "/services", "/roles"]
+                combined = ""
+                for path in candidate_paths:
+                    try:
+                        url = base_url.rstrip("/") + path
+                        content = website_scraper.scrape_url_content(url)
+                        if content:
+                            combined += f"\n\n--- {path or '/'} ---\n\n" + content[:6000]
+                    except Exception:
+                        continue
+                if not combined:
+                    combined = base_url
+                icp_prompt = ai_prompts.format_icp_prompt(combined)
                 icp_response = self.openai_caller.call_with_retry(
                     prompt=icp_prompt,
                     model="gpt-4o-mini",

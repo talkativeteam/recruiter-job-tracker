@@ -197,14 +197,14 @@ class DeepICPExtractor:
         # Extract domain for geography hints
         domain = urlparse(base_url).netloc
         
-        prompt = f"""You are an expert at analyzing recruiter websites to extract their Ideal Client Profile (ICP) and the specific roles they fill.
+        prompt = f"""You are an expert at analyzing recruiter websites to extract their Ideal Client Profile (ICP) and the specific roles they fill. Prefer recall over precision by ~30%: include adjacent/related industries and cross-functional role families when the site presents as multi-sector.
 
 Your task is to analyze the recruiter's website content from multiple pages and extract:
-1. Industries they serve (e.g., "Biotech", "Pharmaceutical", "Healthcare Technology")
-2. Company sizes they target (e.g., "10-100 employees", "100-500 employees")
-3. Geographies they operate in (countries, states, cities)
-4. Specific roles they fill (be PRECISE - e.g., "Sales Director", "Marketing Manager", NOT just "Sales")
-5. Keywords for Boolean search (variations of role names)
+1. Industries they serve (list all explicit sectors and close adjacencies; e.g., "MedTech", "Radiology", "Neurovascular", "Cardiology", "Robotics", "Patient Care", "Urology"). Return many if present.
+2. Company sizes they target (give ranges; if unclear, use broader ranges like "10–250").
+3. Geographies they operate in (countries, states, cities; include multiple where relevant).
+4. Roles they fill – include precise titles AND role families (Leadership/C‑suite, Sales/Commercial, Engineering, Technical, Operations, Marketing, Clinical). Include adjacent equivalents.
+5. Keywords for Boolean search (variations + synonyms; include adjacent role phrasing).
 6. Primary country for LinkedIn search
 7. LinkedIn geoId for that country
 
@@ -216,11 +216,11 @@ CRITICAL Rules for Geography:
 - The primary country is where the recruiter is BASED, not just where they recruit
 
 Role Extraction Rules:
-- Be SPECIFIC about roles (e.g., "Sales Director", "Marketing Manager", "Business Development Manager")
-- Include role variations and levels (e.g., "Sales Manager", "VP Sales", "Head of Sales")
-- Extract company size ranges if mentioned
-- Identify ALL geographies mentioned
-- Pay special attention to "About", "Services", "Sectors" pages for detailed ICP info
+- Be SPECIFIC about roles (e.g., "Sales Director", "Marketing Manager", "Business Development Manager"), AND include adjacent functional equivalents.
+- Include role variations and levels (e.g., "Sales Manager", "VP Sales", "Head of Sales").
+- Extract company size ranges if mentioned; if unclear, infer slightly broader ranges.
+- Identify ALL geographies mentioned.
+- Pay special attention to "About", "Services", "Sectors", "Team Build", "Specialisms", "Expertise" pages for detailed ICP info.
 
 LinkedIn geoId Reference:
 - United Kingdom: 101165590
