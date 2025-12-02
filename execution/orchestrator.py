@@ -623,14 +623,24 @@ class Orchestrator:
             print("📧 Phase 9: Generating personalized outreach email...")
             email_generator = EmailGenerator(run_id=self.run_id)
             
-            outreach_email = email_generator.generate_email(
-                recruiter_name=validated.get("client_name", "there"),
-                recruiter_email=validated.get("client_email", ""),
-                companies=verified_companies,
-                icp_summary=self.recruiter_icp
+            # Format companies for email generator (Exa companies have no jobs, use empty list)
+            companies_for_email = []
+            for company_data in enriched_companies:
+                companies_for_email.append({
+                    "company_name": company_data["company_name"],
+                    "company_website": company_data["company_website"],
+                    "company_description": company_data.get("company_description", ""),
+                    "employee_count": company_data.get("employee_count", 50),
+                    "roles_hiring": []  # Exa mode has no specific job listings
+                })
+            
+            self.outreach_email = email_generator.generate_email_content(
+                companies=companies_for_email,
+                decision_makers=[],  # No decision makers in Exa flow
+                recruiter_data=validated
             )
             
-            print(f"✅ Generated outreach email ({len(outreach_email)} characters)")
+            print(f"✅ Generated outreach email ({len(self.outreach_email)} characters)")
             
             # Phase 10: Send Response
             print("📤 Phase 10: Sending response...")
