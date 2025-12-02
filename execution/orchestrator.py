@@ -269,18 +269,23 @@ class Orchestrator:
             size_filtered_jobs = []
             for job in self.jobs_scraped:
                 emp_count = job.get("companyEmployeesCount", 0)
-                # Parse if string range like "51-200"
+                # Parse if string range like "51-200" → take middle value
                 if isinstance(emp_count, str):
                     import re
                     numbers = re.findall(r'\d+', emp_count)
-                    emp_count = max(int(n) for n in numbers) if numbers else 0
+                    if numbers:
+                        # Take average of range (e.g., "51-200" → (51+200)/2 = 125.5 → 126)
+                        nums = [int(n) for n in numbers]
+                        emp_count = sum(nums) // len(nums)
+                    else:
+                        emp_count = 0
                 if emp_count and emp_count <= MAX_COMPANY_SIZE:
                     size_filtered_jobs.append(job)
-                elif not emp_count:
-                    # Include if no count available (avoid over-filtering)
-                    size_filtered_jobs.append(job)
                 else:
-                    print(f"  ⚠️ Filtered out {job.get('companyName')} ({emp_count} employees)")
+                    if emp_count:
+                        print(f"  ⚠️ Filtered out {job.get('companyName')} ({emp_count} employees)")
+                    else:
+                        print(f"  ⚠️ Filtered out {job.get('companyName')} (no employee count)")
             self.jobs_scraped = size_filtered_jobs
             print(f"✅ After size filter: {len(self.jobs_scraped)} jobs from companies ≤{MAX_COMPANY_SIZE} employees")
             

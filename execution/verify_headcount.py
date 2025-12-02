@@ -105,13 +105,14 @@ class HeadcountVerifier:
                     company_data.get("company_size")
                 )
                 
-                # Parse if it's a range string like "51-200"
+                # Parse if it's a range string like "51-200" → take middle value
                 if isinstance(employee_count, str):
-                    # Extract numbers and take max
+                    # Extract numbers and take average
                     import re
                     numbers = re.findall(r'\d+', employee_count)
                     if numbers:
-                        employee_count = max(int(n) for n in numbers)
+                        nums = [int(n) for n in numbers]
+                        employee_count = sum(nums) // len(nums)
                     else:
                         return None
                 
@@ -159,9 +160,7 @@ class HeadcountVerifier:
                     company["linkedin_url"] = linkedin_url
             
             if not linkedin_url:
-                print(f"  ⚠️ No LinkedIn URL, skipping {company_name}")
-                # Include by default if we can't verify (to avoid over-filtering)
-                verified.append(company)
+                print(f"  ❌ No LinkedIn URL found for {company_name}, excluding")
                 continue
             
             # Get employee count from BrightData
@@ -175,8 +174,7 @@ class HeadcountVerifier:
                 else:
                     print(f"  ❌ {company_name}: {employee_count} employees (over {max_employees} limit)")
             else:
-                print(f"  ⚠️ Could not verify employee count for {company_name}, including anyway")
-                verified.append(company)
+                print(f"  ❌ Could not verify employee count for {company_name}, excluding")
             
             # Rate limiting
             time.sleep(1)
