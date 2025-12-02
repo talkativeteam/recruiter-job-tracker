@@ -621,7 +621,7 @@ class Orchestrator:
             
             # Phase 9: Generate Outreach Email
             print("📧 Phase 9: Generating personalized outreach email...")
-            email_generator = OutreachEmailGenerator(run_id=self.run_id)
+            email_generator = EmailGenerator(run_id=self.run_id)
             
             outreach_email = email_generator.generate_email(
                 recruiter_name=validated.get("client_name", "there"),
