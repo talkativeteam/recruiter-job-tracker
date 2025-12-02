@@ -67,9 +67,9 @@ class DeepICPExtractor:
                 
                 target_keywords = {
                     "about": ["about", "about-us", "about us", "who-we-are", "our-story"],
-                    "services": ["services", "what-we-do", "solutions", "offerings"],
-                    "sectors": ["sectors", "industries", "specialisms", "expertise"],
-                    "team": ["team", "our-team", "people", "leadership"]
+                    "services": ["services", "what-we-do", "solutions", "offerings", "capabilities"],
+                    "sectors": ["sectors", "industries", "specialisms", "expertise", "practice-areas"],
+                    "team": ["team", "our-team", "people", "leadership", "team-build", "teambuild"]
                 }
                 
                 for link in links:
