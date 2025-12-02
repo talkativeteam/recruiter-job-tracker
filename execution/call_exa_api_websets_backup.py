@@ -89,7 +89,7 @@ class ExaCompanyFinder:
             traceback.print_exc()
             return []
     
-    def _generate_criteria_with_ai(self, icp_data: Dict[str, Any], max_company_size: int = 100) -> List[str]:
+    def _generate_criteria_with_ai(self, icp_data: Dict[str, Any], max_company_size: int = 200) -> List[str]:
         """
         Generate Exa search criteria from ICP data using AI
         Returns list of atomic criteria statements
@@ -100,10 +100,10 @@ class ExaCompanyFinder:
         roles = icp_data.get("roles_filled", icp_data.get("roles", []))
         industries = icp_data.get("industries", [])
         
-        # Calculate date range (last 7 days)
+        # Calculate date range (last 14 days)
         today = datetime.now()
-        seven_days_ago = today - timedelta(days=7)
-        date_start = seven_days_ago.strftime("%B %d, %Y").lower()
+        fourteen_days_ago = today - timedelta(days=14)
+        date_start = fourteen_days_ago.strftime("%B %d, %Y").lower()
         date_end = today.strftime("%B %d, %Y").lower()
         
         # Build search query for AI prompt
@@ -116,7 +116,7 @@ class ExaCompanyFinder:
             prompt = ai_prompts.format_exa_criteria_prompt(
                 icp_data=icp_data,
                 max_company_size=max_company_size,
-                jobs_posted_timeframe="last 7 days"
+                jobs_posted_timeframe="last 14 days"
             )
             
             response = self.openai_caller.call_with_retry(

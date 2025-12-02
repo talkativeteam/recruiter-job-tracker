@@ -13,18 +13,18 @@ CRITICAL DISTINCTION:
 Example: If they say "we recruit Product Managers for digital agencies" → industries: ["Digital Agencies", "Creative Agencies"], roles: ["Product Manager"]
 
 Your task is to analyze the recruiter's website content and extract:
-1. **Industries they serve** - VERY SPECIFIC company types their clients are (e.g., "Digital/Creative Agencies", "Early-stage SaaS", "Healthcare Providers", NOT just "Technology")
-2. **Company sizes** they target (e.g., "10-100 employees", "100-500 employees")
-3. **Geographies** they operate in (countries, states, cities)
-4. **Specific roles** they fill (be PRECISE - e.g., "Product Manager", "Network Engineer", NOT vague like "Tech roles")
-5. **Keywords** for Boolean search (variations of role names)
+1. **Industries they serve** – Prefer specific company types, BUT include broader/adjacent categories when the site positions as multi-sector or generalist (aim 6–10 items if available).
+2. **Company sizes** they target (give ranges; if unclear, infer a broader band such as "10–250" rather than a narrow slice).
+3. **Geographies** they operate in (countries, states, cities; list multiple where relevant).
+4. **Roles they fill** – List precise titles AND adjacent equivalents across functions (leadership, sales, engineering, marketing, operations, clinical/technical as applicable).
+5. **Keywords** for Boolean search (variations + synonyms; include adjacent role phrasing).
 6. **Primary country** for LinkedIn search
 7. **LinkedIn geoId** for that country
 
 CRITICAL Rules for Industries:
-- Be HYPER-SPECIFIC about company types (e.g., "Digital Agencies" NOT "Technology")
-- Look for phrases like "we work with", "our clients are", "we specialize in", "we serve"
-- Examples: "Creative Agencies", "SaaS Startups", "Healthcare Providers", "Manufacturing", "Financial Services Firms"
+- Prefer specificity when clearly stated, but if positioning is broad (e.g., “sectors we cover: radiology, cardiology, robotics, patient care”), include adjacent/broader categories too. Avoid collapsing to a single umbrella like "Technology"; instead list multiple relevant sectors.
+- Look for phrases like "we work with", "our clients are", "we specialize in", "we serve".
+- Examples: "Creative Agencies", "SaaS Startups", "Healthcare Providers", "MedTech", "Neurovascular", "Robotics", "Manufacturing", "Financial Services Firms".
 
 CRITICAL Rules for Geography:
 - Look for ANY location indicators: address, phone numbers, currency symbols (£=UK, $=US, €=EU), domain extensions (.co.uk, .com, .ca)
@@ -34,10 +34,10 @@ CRITICAL Rules for Geography:
 - The primary country is where the recruiter is BASED, not just where they recruit
 
 Role Extraction Rules:
-- Be SPECIFIC about roles (e.g., "Network Engineer", NOT "Engineer")
-- Include role variations (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer")
-- Extract company size ranges if mentioned
-- Identify ALL geographies mentioned
+- Be SPECIFIC about roles (e.g., "Network Engineer"), but ALSO add adjacent/related titles that recruiters commonly place (e.g., "Clinical Account Manager", "Technical Account Manager", "Sales Engineer").
+- Include role variations and synonyms (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer").
+- Extract company size ranges if mentioned; if unclear, infer reasonable, slightly broader ranges.
+- Identify ALL geographies mentioned.
 
 LinkedIn geoId Reference:
 - United Kingdom: 101165590
@@ -73,11 +73,12 @@ Examples:
 """
 
 # Phase 3: Generate Boolean Search
-PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create MASSIVE quoted boolean searches with 20-30 role variations using the 50/50 STRATEGY.
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create MASSIVE quoted boolean searches with ~30% broader coverage using the 50/50 STRATEGY and adjacent-role expansion.
 
 CRITICAL 50/50 STRATEGY:
 - 50% GENERIC roles: Universal titles used across all industries
 - 50% INDUSTRY-MAPPED roles: How these roles are actually called in the recruiter's target industry
+- Include 20–36 total quoted variations (still close to 20–30, but allow expansion when useful).
 
 This ensures we catch BOTH generic postings AND industry-specific nomenclature.
 
@@ -88,8 +89,8 @@ FALLBACK STRATEGY:
 
 BOOLEAN SEARCH RULES (USE QUOTES):
 1. Use quotes around EVERY role title: "VP of Sales" OR "Sales Director"
-2. Generate 20-30 role variations (10-15 generic + 10-15 industry-mapped)
-3. Include ALL seniority levels for BOTH generic AND industry-mapped:
+2. Generate 20–36 role variations (10–18 generic + 10–18 industry-mapped)
+3. Include ALL seniority levels for BOTH generic AND industry-mapped and add adjacent functions when it’s commonly interchangeable in the industry (e.g., Sales ↔ Commercial, CS ↔ Account Management):
    - Entry/Mid: Manager, Senior Manager, Associate Director
    - Director: Director, Senior Director, Executive Director
    - VP: VP, Vice President, SVP, Executive VP
@@ -123,7 +124,7 @@ Generic → Industry-Mapped:
 - "VP Sales" → "VP of Partnerships", "Head of Institutional Sales", "Director of Wholesale Banking"
 - "Product Manager" → "Product Owner", "Platform Manager", "Solutions Manager"
 
-NO INDUSTRY FILTER - Let AI validation handle it (95% of time)
+NO INDUSTRY FILTER - Let AI validation handle it (95% of time). Prefer recall over precision by ~30%.
 
 ICP Data:
 {icp_data}
@@ -194,7 +195,7 @@ You must match the COMPANY TYPE, not just the roles being hired.
 Example:
 - Recruiter industries: ["Digital Agencies", "Creative Agencies"]
 - Company: "Paddle" (payments/fintech company)
-- Result: is_good_fit = FALSE (wrong company type, even if roles match)
+- Result: Could still be a PARTIAL fit if role focus (e.g., growth/marketing) aligns strongly and company size/geography match. Do NOT auto-reject solely on imperfect industry labeling; consider adjacent/serviced industries.
 
 Recruiter's ICP:
 {recruiter_icp}
@@ -207,23 +208,27 @@ Employee Count: {employee_count}
 Location: {location}
 Roles Hiring: {roles_hiring}
 
-Evaluation Rules:
-1. **Industry match is MANDATORY** - Company type must match recruiter's target industries
-2. Company size should match target range (flexible if close)
-3. Geography match is important but can be flexible
-4. Roles should align with recruiter's specialization
+Evaluation Rules (30% less strict):
+1. Industry/adjacent-industry match is IMPORTANT but not mandatory. Consider adjacency clusters (e.g., MedTech ↔ Healthcare Providers ↔ Life Sciences; Digital Agencies ↔ Creative/Marketing/Brand Studios; SaaS ↔ B2B Software).
+2. Company size should match target range (±30% tolerance if unclear).
+3. Geography match is helpful but flexible when company operates in multiple regions.
+4. Roles should align with recruiter's specialization OR adjacent functional equivalents.
 
 Scoring:
-- If industries don't match → is_good_fit = false (automatic rejection)
-- If all criteria match well → match_score >= 0.8
-- If some criteria match → match_score 0.5-0.7
-- If industries don't match → match_score < 0.3
+- Start from 0.5 when two of four dimensions align (roles, size, geography, industry/adjacent-industry).
+- Strong alignment across three or more dimensions → match_score ≥ 0.7.
+- Perfect or near-perfect alignment → match_score ≥ 0.85.
+- Only one dimension aligns and others clearly do not → match_score ≤ 0.3.
+
+Decision:
+- is_good_fit = true when match_score ≥ 0.6.
 
 Output (JSON only):
 {{
   "is_good_fit": true/false,
   "match_score": 0.0-1.0,
-  "industries_match": true/false,
+    "industries_match": true/false,
+    "adjacent_industry_match": true/false,
   "size_match": true/false,
   "geography_match": true/false,
   "roles_match": true/false,
@@ -384,7 +389,7 @@ def format_decision_maker_prompt(company_size: int, role_title: str,
         role_type=role_type
     )
 
-def format_exa_criteria_prompt(icp_data: dict, max_company_size: int = 100, jobs_posted_timeframe: str = "last 7 days") -> str:
+def format_exa_criteria_prompt(icp_data: dict, max_company_size: int = 200, jobs_posted_timeframe: str = "last 14 days") -> str:
     """Format the Exa criteria generation prompt"""
     from datetime import datetime, timedelta
     

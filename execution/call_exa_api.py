@@ -98,17 +98,17 @@ class ExaCompanyFinder:
         Build structured Exa search criteria from ICP data
         Format: Natural language that Exa can interpret as filters
         
-        Target: Companies under 100 employees, posted about hiring in last 7 days
+        Target: Companies under ~200 employees, posted about hiring in last 14 days (broader by ~30%)
         """
         from datetime import datetime, timedelta
         
         roles = icp_data.get("roles_filled", icp_data.get("roles", []))
         industries = icp_data.get("industries", [])
         
-        # Calculate date range (last 7 days)
+        # Calculate date range (last 14 days)
         today = datetime.now()
-        seven_days_ago = today - timedelta(days=7)
-        date_start = seven_days_ago.strftime("%B %d, %Y").lower()
+        fourteen_days_ago = today - timedelta(days=14)
+        date_start = fourteen_days_ago.strftime("%B %d, %Y").lower()
         date_end = today.strftime("%B %d, %Y").lower()
         
         # Build criteria components
@@ -139,8 +139,8 @@ class ExaCompanyFinder:
         else:
             criteria_parts.append("actively hiring")
         
-        # Size criteria
-        criteria_parts.append("company has under 100 employees")
+        # Size criteria (broadened)
+        criteria_parts.append("company has under 200 employees")
         
         # Timing criteria
         criteria_parts.append(f"posted about hiring between {date_start} and {date_end}")
