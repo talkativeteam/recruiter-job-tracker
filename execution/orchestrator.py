@@ -610,6 +610,30 @@ class Orchestrator:
                 
                 # Use enriched data for rest of pipeline
                 enriched_companies = [c["enrichment"] for c in top_companies]
+
+                # NEW: Extract jobs from top companies' career pages (ATS-aware via Playwright)
+                print(f"🔍 Extracting jobs from top {len(top_companies)} companies (ATS-aware)...")
+                from execution.extract_jobs_from_website import JobExtractor
+                job_extractor = JobExtractor(run_id=self.run_id)
+                companies_for_jobs = []
+                for c in top_companies:
+                    companies_for_jobs.append({
+                        "name": c["name"],
+                        "company_url": c.get("company_url", ""),
+                        "careers_url": c.get("careers_url", c.get("company_url", ""))
+                    })
+                companies_with_jobs = job_extractor.extract_jobs_from_companies(companies_for_jobs)
+                # Map jobs back into enriched_companies structure
+                name_to_jobs = {cj["name"]: cj.get("jobs", []) for cj in companies_with_jobs}
+                for ec in enriched_companies:
+                    jobs = name_to_jobs.get(ec.get("company_name"), [])
+                    ec["roles_hiring"] = [
+                        {
+                            "job_title": j.get("job_title"),
+                            "job_url": j.get("job_url"),
+                            "posted_at": ""
+                        } for j in jobs
+                    ]
                 
             except Exception as e:
                 print(f"⚠️ Company enrichment failed: {e}")
@@ -638,7 +662,7 @@ class Orchestrator:
             print("📧 Phase 9: Generating personalized outreach email...")
             email_generator = EmailGenerator(run_id=self.run_id)
             
-            # Format companies for email generator (Exa companies have no jobs, use empty list)
+            # Format companies for email generator (include roles_hiring from ATS parsing when available)
             companies_for_email = []
             for company_data in enriched_companies:
                 companies_for_email.append({
@@ -646,7 +670,7 @@ class Orchestrator:
                     "company_website": company_data["company_website"],
                     "company_description": company_data.get("company_description", ""),
                     "employee_count": company_data.get("employee_count", 50),
-                    "roles_hiring": []  # Exa mode has no specific job listings
+                    "roles_hiring": company_data.get("roles_hiring", [])
                 })
             
             self.outreach_email = email_generator.generate_email_content(
