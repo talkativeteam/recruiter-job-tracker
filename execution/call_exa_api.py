@@ -107,7 +107,7 @@ class ExaCompanyFinder:
         
         # Calculate date range (last 14 days)
         today = datetime.now()
-        fourteen_days_ago = today - timedelta(days=14)
+            ten_days_ago = today - timedelta(days=10)
         date_start = fourteen_days_ago.strftime("%B %d, %Y").lower()
         date_end = today.strftime("%B %d, %Y").lower()
         
@@ -138,7 +138,7 @@ class ExaCompanyFinder:
         criteria_parts.append("company has under 200 employees")
         
         # Timing criteria
-        criteria_parts.append(f"posted about hiring between {date_start} and {date_end}")
+            criteria_parts.append(f"posted about hiring between {date_start} and {date_end} (last 10 days)")
         
         # Exclusions
         criteria_parts.append("company is not a recruitment or staffing firm")

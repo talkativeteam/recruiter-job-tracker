@@ -95,10 +95,6 @@ class JobExtractor:
         prompt = f"""You are analyzing the careers/jobs page of {company_name}.
 
 Extract all job listings from the following content. For each job, extract:
-- job_title: The job title/position name
-- description: Brief description (2-3 sentences)
-- job_url: Link to apply or view details (if available)
-- location: Job location (if mentioned)
 
 Return a JSON array of jobs. If no jobs are found, return an empty array.
 

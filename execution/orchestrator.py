@@ -370,9 +370,35 @@ class Orchestrator:
                         else:
                             company["relevance_score"] = 0
                     
-                    # Sort by relevance and use for rest of pipeline
-                    exa_companies = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
-                    print(f"✅ Sorted Exa companies by enrichment scores")
+                    # After enrichment, extract jobs for ALL companies BEFORE selection
+                    print(f"🔍 Extracting jobs from ALL {len(exa_companies)} companies (ATS-aware)...")
+                    from execution.extract_jobs_from_website import JobExtractor
+                    job_extractor = JobExtractor(run_id=self.run_id)
+                    companies_for_jobs = []
+                    for c in exa_companies:
+                        companies_for_jobs.append({
+                            "name": c["name"],
+                            "company_url": c.get("company_url", ""),
+                            "careers_url": c.get("careers_url", c.get("company_url", ""))
+                        })
+                    companies_with_jobs = job_extractor.extract_jobs_from_companies(companies_for_jobs)
+                    companies_hiring, _ = job_extractor.validate_hiring_activity(companies_with_jobs)
+                    print(f"✅ {len(companies_hiring)} companies have valid live postings")
+
+                    # Build selection pool only from hiring companies
+                    hiring_name_set = {c["name"] for c in companies_hiring}
+                    selection_pool = [c for c in exa_companies if c["name"] in hiring_name_set]
+                    if not selection_pool:
+                        raise Exception("No companies with valid postings found in Exa fallback.")
+
+                    # Select top 4 purely by ICP match
+                    prioritizer = CompanyPrioritizer(run_id=self.run_id)
+                    validated_companies = prioritizer.select_top_n(
+                        companies=selection_pool,
+                        n=4,
+                        icp_data=self.recruiter_icp
+                    )
+                    print(f"✅ Selected top {len(validated_companies)} companies based on ICP match from hiring pool")
                     
                 except Exception as e:
                     print(f"⚠️ Exa enrichment failed: {e}, continuing with unsorted results")
@@ -603,7 +629,7 @@ class Orchestrator:
                         company["enrichment"] = {}
                         company["relevance_score"] = 0
                 
-                # Extract ATS jobs for ALL enriched companies first (ATS-aware via Playwright)
+                # Extract jobs from ALL companies (ATS-aware via Playwright) BEFORE selection
                 print(f"🔍 Extracting jobs from ALL {len(exa_companies)} companies (ATS-aware)...")
                 from execution.extract_jobs_from_website import JobExtractor
                 job_extractor = JobExtractor(run_id=self.run_id)
@@ -615,28 +641,52 @@ class Orchestrator:
                         "careers_url": c.get("careers_url", c.get("company_url", ""))
                     })
                 companies_with_jobs = job_extractor.extract_jobs_from_companies(companies_for_jobs)
-                # Map jobs back into enrichment for all companies
-                name_to_jobs = {cj["name"]: cj.get("jobs", []) for cj in companies_with_jobs}
-                for company in exa_companies:
-                    enrichment = company.get("enrichment", {})
-                    jobs = name_to_jobs.get(company["name"], [])
-                    if enrichment:
-                        enrichment["roles_hiring"] = [
+                # Keep only companies with at least one valid job (title + description)
+                companies_hiring, _ = job_extractor.validate_hiring_activity(companies_with_jobs)
+                print(f"✅ {len(companies_hiring)} companies have valid live postings")
+
+                # Build selection pool from hiring companies, attach enrichment for email
+                name_to_company = {c["name"]: c for c in exa_companies}
+                selection_pool = []
+                for hc in companies_hiring:
+                    base = name_to_company.get(hc["name"], {})
+                    selection_pool.append({
+                        "name": hc["name"],
+                        "company_url": base.get("company_url", hc.get("company_url", "")),
+                        "careers_url": base.get("careers_url", hc.get("careers_url", "")),
+                        "description": base.get("description", hc.get("description", "")),
+                        "employee_count": base.get("employee_count", 0),
+                        "jobs": hc.get("jobs", [])
+                    })
+
+                if not selection_pool:
+                    raise Exception("No companies with valid postings found in Exa-direct mode.")
+
+                # Select top 4 purely by ICP match
+                prioritizer = CompanyPrioritizer(run_id=self.run_id)
+                top_companies = prioritizer.select_top_n(
+                    companies=selection_pool,
+                    n=4,
+                    icp_data=self.recruiter_icp
+                )
+                print(f"✅ Selected top {len(top_companies)} companies based on ICP match from hiring pool")
+
+                # Prepare enriched_companies for email (map roles_hiring)
+                enriched_companies = []
+                for tc in top_companies:
+                    enriched_companies.append({
+                        "company_name": tc["name"],
+                        "company_website": tc.get("company_url", ""),
+                        "company_description": tc.get("description", ""),
+                        "employee_count": tc.get("employee_count", 0),
+                        "roles_hiring": [
                             {
                                 "job_title": j.get("job_title"),
                                 "job_url": j.get("job_url"),
-                                "posted_at": ""
-                            } for j in jobs
+                                "posted_at": j.get("posted_at", "")
+                            } for j in tc.get("jobs", [])
                         ]
-                    company["job_count"] = len(jobs)
-
-                # NOW select top 4 based on enrichment relevance scores (after ATS parsing)
-                exa_companies_sorted = sorted(exa_companies, key=lambda x: x.get("relevance_score", 0), reverse=True)
-                top_companies = exa_companies_sorted[:4]
-                print(f"✅ Selected top {len(top_companies)} companies based on enrichment scores (post-ATS)")
-                
-                # Use enriched data for rest of pipeline
-                enriched_companies = [c.get("enrichment", {}) for c in top_companies]
+                    })
                 
             except Exception as e:
                 print(f"⚠️ Company enrichment failed: {e}")
