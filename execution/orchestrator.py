@@ -442,10 +442,10 @@ class Orchestrator:
                     "roles_hiring": enriched_jobs  # Email generator uses 'roles_hiring' key
                 })
             
-            # Generate email with decision makers
+            # Generate email content (no decision makers)
             self.outreach_email = email_generator.generate_email_content(
                 companies=companies_for_email,
-                decision_makers=decision_makers,
+                decision_makers=[],
                 recruiter_data=validated
             )
             
