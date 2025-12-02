@@ -44,6 +44,26 @@ class ApifyLinkedInScraper:
         print(f"🔗 Full URL: {linkedin_url}")
         print(f"⚠️ scrapeCompany: True (CRITICAL)")
         
+        # STEP-THROUGH: log inputs and optionally pause
+        try:
+            import os as _os, time as _t
+            from pathlib import Path as _Path
+            _step = _os.getenv("STEP_THROUGH") == "1"
+            _pause = _os.getenv("STEP_THROUGH_PAUSE") == "1"
+            if _step:
+                _dir = _Path("logs") / (self.run_id or "local") / "apify"
+                _dir.mkdir(parents=True, exist_ok=True)
+                _ts = _t.strftime("%Y%m%d-%H%M%S")
+                with open(_dir / f"{_ts}_linkedin_request.json", "w", encoding="utf-8") as f:
+                    json.dump({"linkedin_url": linkedin_url, "max_jobs": max_jobs, "run_input": run_input}, f, indent=2)
+                print(f"📝 [STEP] Saved Apify request → {_dir}/{_ts}_linkedin_request.json")
+                if _pause:
+                    import sys as _sys
+                    if _sys.stdin and _sys.stdin.isatty():
+                        input("⏸️  [STEP] Press Enter to call Apify…")
+        except Exception:
+            pass
+
         for attempt in range(MAX_RETRIES):
             try:
                 # Start the actor run
@@ -55,6 +75,17 @@ class ApifyLinkedInScraper:
                 
                 print(f"✅ Apify scraping completed")
                 print(f"✅ Jobs scraped: {len(items)}")
+                # STEP-THROUGH: save sample of results
+                try:
+                    if _step:
+                        _ts2 = _t.strftime("%Y%m%d-%H%M%S")
+                        with open(_dir / f"{_ts2}_linkedin_results_sample.json", "w", encoding="utf-8") as f:
+                            json.dump(items[:10], f, indent=2)
+                        print(f"📝 [STEP] Saved Apify results sample → {_dir}/{_ts2}_linkedin_results_sample.json")
+                        if _pause and _sys.stdin and _sys.stdin.isatty():
+                            input("⏸️  [STEP] Press Enter to continue…")
+                except Exception:
+                    pass
                 
                 # Count unique companies
                 unique_companies = len(set(item.get("company", "") for item in items if item.get("company")))

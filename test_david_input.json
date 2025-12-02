@@ -1,0 +1,12 @@
+{
+  "client_name": "David McCreadie",
+  "client_email": "david@swi-tch.com",
+  "client_website": "www.swi-tch.com",
+  "email_sender_name": "",
+  "email_sender_address": "",
+  "email_thread": "",
+  "max_jobs_to_scrape": 150,
+  "callback_webhook_url": null,
+  "recruiter_timezone": "",
+  "linkedin_plus_exa": true
+}

@@ -37,6 +37,28 @@ class ExaCompanyFinder:
             # Build structured Exa search criteria
             search_query = self._build_exa_criteria(icp_data)
             print(f"🔍 Exa search criteria: {search_query}")
+            # STEP-THROUGH: optional pause/log
+            import time as _t, os as _os
+            from pathlib import Path as _Path
+            step = _os.getenv("STEP_THROUGH") == "1"
+            pause = _os.getenv("STEP_THROUGH_PAUSE") == "1"
+            if step:
+                try:
+                    logs_dir = _Path("logs") / (self.run_id or "local") / "exa"
+                    logs_dir.mkdir(parents=True, exist_ok=True)
+                    ts = _t.strftime("%Y%m%d-%H%M%S")
+                    with open(logs_dir / f"{ts}_criteria.txt", "w", encoding="utf-8") as f:
+                        f.write(search_query)
+                    print(f"📝 [STEP] Saved Exa criteria → {logs_dir}/{ts}_criteria.txt")
+                except Exception:
+                    pass
+                if pause:
+                    try:
+                        import sys as _sys
+                        if _sys.stdin and _sys.stdin.isatty():
+                            input("⏸️  [STEP] Press Enter to call Exa…")
+                    except Exception:
+                        pass
             
             # Search for companies with career pages
             results = self.exa_client.search_and_contents(
@@ -63,6 +85,19 @@ class ExaCompanyFinder:
                         seen_domains.add(domain)
             
             print(f"✅ Exa found {len(companies)} unique companies")
+            if step:
+                try:
+                    sample = companies[:3]
+                    ts2 = _t.strftime("%Y%m%d-%H%M%S")
+                    with open(logs_dir / f"{ts2}_results_sample.json", "w", encoding="utf-8") as f:
+                        json.dump(sample, f, indent=2)
+                    print(f"📝 [STEP] Saved Exa results sample → {logs_dir}/{ts2}_results_sample.json")
+                    if pause:
+                        import sys as _sys
+                        if _sys.stdin and _sys.stdin.isatty():
+                            input("⏸️  [STEP] Press Enter to continue…")
+                except Exception:
+                    pass
             cost = self.get_cost_estimate()
             print(f"💰 Exa API cost: ${cost:.4f} ({self.search_count} searches, {self.total_results} results)")
             return companies
@@ -105,10 +140,10 @@ class ExaCompanyFinder:
         roles = icp_data.get("roles_filled", icp_data.get("roles", []))
         industries = icp_data.get("industries", [])
         
-        # Calculate date range (last 14 days)
+        # Calculate date range (last 10 days)
         today = datetime.now()
-            ten_days_ago = today - timedelta(days=10)
-        date_start = fourteen_days_ago.strftime("%B %d, %Y").lower()
+        ten_days_ago = today - timedelta(days=10)
+        date_start = ten_days_ago.strftime("%B %d, %Y").lower()
         date_end = today.strftime("%B %d, %Y").lower()
         
         # Build criteria components (broader by design)
@@ -138,7 +173,7 @@ class ExaCompanyFinder:
         criteria_parts.append("company has under 200 employees")
         
         # Timing criteria
-            criteria_parts.append(f"posted about hiring between {date_start} and {date_end} (last 10 days)")
+        criteria_parts.append(f"posted about hiring between {date_start} and {date_end} (last 10 days)")
         
         # Exclusions
         criteria_parts.append("company is not a recruitment or staffing firm")

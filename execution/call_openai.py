@@ -10,6 +10,8 @@ import argparse
 from pathlib import Path
 from typing import Optional, Dict, Any
 from openai import OpenAI
+import os
+import hashlib
 
 # Add parent directory for imports
 sys.path.append(str(Path(__file__).parent.parent))
@@ -34,6 +36,33 @@ class OpenAICaller:
         """
         Call OpenAI API with exponential backoff retry
         """
+        # STEP-THROUGH instrumentation (opt-in via env)
+        step_through = os.getenv("STEP_THROUGH") == "1"
+        pause_enabled = os.getenv("STEP_THROUGH_PAUSE") == "1"
+        run_label = self.run_id or "local"
+        logs_dir = Path("logs") / run_label / "openai"
+        if step_through:
+            try:
+                logs_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            # Save prompt for inspection
+            ts = time.strftime("%Y%m%d-%H%M%S")
+            phash = hashlib.sha1(prompt.encode("utf-8")).hexdigest()[:8]
+            prompt_path = logs_dir / f"{ts}_{model}_{phash}_prompt.txt"
+            try:
+                with open(prompt_path, "w", encoding="utf-8") as f:
+                    f.write(prompt)
+                print(f"📝 [STEP] Saved OpenAI prompt → {prompt_path}")
+                preview = (prompt[:800] + "…") if len(prompt) > 800 else prompt
+                print(f"— Prompt preview —\n{preview}\n— end —")
+            except Exception as e:
+                print(f"⚠️ [STEP] Failed to write prompt log: {e}")
+            if pause_enabled and sys.stdin and sys.stdin.isatty():
+                try:
+                    input("⏸️  [STEP] Press Enter to call OpenAI…")
+                except Exception:
+                    pass
         for attempt in range(MAX_RETRIES):
             try:
                 print(f"🤖 Calling OpenAI ({model}, attempt {attempt + 1}/{MAX_RETRIES})...")
@@ -82,6 +111,23 @@ class OpenAICaller:
                 
                 print(f"✅ OpenAI call successful ({tokens} tokens: {input_tokens} in + {output_tokens} out, ${call_cost:.4f}, total: ${self.get_cost_estimate():.4f})")
                 
+                # STEP-THROUGH: Save output
+                if step_through:
+                    try:
+                        ts2 = time.strftime("%Y%m%d-%H%M%S")
+                        out_path = logs_dir / f"{ts2}_{model}_{phash}_output.txt"
+                        with open(out_path, "w", encoding="utf-8") as f:
+                            f.write(content or "")
+                        print(f"📝 [STEP] Saved OpenAI output → {out_path}")
+                        preview_out = (content[:800] + "…") if content and len(content) > 800 else (content or "")
+                        print(f"— Output preview —\n{preview_out}\n— end —")
+                    except Exception as e:
+                        print(f"⚠️ [STEP] Failed to write output log: {e}")
+                    if pause_enabled and sys.stdin and sys.stdin.isatty():
+                        try:
+                            input("⏸️  [STEP] Press Enter to continue…")
+                        except Exception:
+                            pass
                 return content
             
             except Exception as e:
