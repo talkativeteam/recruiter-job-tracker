@@ -26,8 +26,9 @@ from execution.call_exa_api import ExaCompanyFinder
 from execution.extract_jobs_from_website import JobExtractor
 from execution.extract_icp_deep import DeepICPExtractor
 from execution.validate_job_icp_fit import JobICPValidator
+from execution.verify_headcount import HeadcountVerifier
 from config import ai_prompts
-from config.config import TMP_DIR
+from config.config import TMP_DIR, MAX_COMPANY_SIZE
 
 
 class Orchestrator:
@@ -263,6 +264,26 @@ class Orchestrator:
             if not self.jobs_scraped:
                 raise Exception("No jobs scraped from LinkedIn or Exa fallback")
             
+            # CRITICAL: Filter by company size (<=100 employees) BEFORE validation
+            print(f"🔍 Filtering by company size (<={MAX_COMPANY_SIZE} employees)...")
+            size_filtered_jobs = []
+            for job in self.jobs_scraped:
+                emp_count = job.get("companyEmployeesCount", 0)
+                # Parse if string range like "51-200"
+                if isinstance(emp_count, str):
+                    import re
+                    numbers = re.findall(r'\d+', emp_count)
+                    emp_count = max(int(n) for n in numbers) if numbers else 0
+                if emp_count and emp_count <= MAX_COMPANY_SIZE:
+                    size_filtered_jobs.append(job)
+                elif not emp_count:
+                    # Include if no count available (avoid over-filtering)
+                    size_filtered_jobs.append(job)
+                else:
+                    print(f"  ⚠️ Filtered out {job.get('companyName')} ({emp_count} employees)")
+            self.jobs_scraped = size_filtered_jobs
+            print(f"✅ After size filter: {len(self.jobs_scraped)} jobs from companies ≤{MAX_COMPANY_SIZE} employees")
+            
             # Phase 5: Extract Unique Companies
             print("🏢 Phase 5: Extracting unique companies from job postings...")
             companies_dict = {}
@@ -343,6 +364,16 @@ class Orchestrator:
                     raise Exception("No companies found via Exa fallback either.")
                 
                 print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
+                
+                # 🔍 CRITICAL: Verify employee counts via BrightData BEFORE enrichment
+                print(f"🔍 Verifying employee counts for {len(exa_companies)} companies...")
+                headcount_verifier = HeadcountVerifier(run_id=self.run_id)
+                exa_companies = headcount_verifier.verify_companies(exa_companies, max_employees=MAX_COMPANY_SIZE)
+                
+                if not exa_companies:
+                    raise Exception("No companies under 100 employees found via Exa fallback.")
+                
+                print(f"✅ {len(exa_companies)} companies verified under {MAX_COMPANY_SIZE} employees")
                 
                 # 🎭 CRITICAL: Enrich ALL Exa companies with Playwright BEFORE selecting top 4
                 print(f"🧠 Enriching ALL {len(exa_companies)} Exa companies with Playwright...")
@@ -601,6 +632,16 @@ class Orchestrator:
                 raise Exception("No companies found via Exa direct mode.")
             
             print(f"✅ Exa found {len(exa_companies)} ICP-matching companies")
+            
+            # Phase 7.5: Verify employee counts via BrightData BEFORE enrichment
+            print(f"🔍 Phase 7.5: Verifying employee counts for {len(exa_companies)} companies...")
+            headcount_verifier = HeadcountVerifier(run_id=self.run_id)
+            exa_companies = headcount_verifier.verify_companies(exa_companies, max_employees=MAX_COMPANY_SIZE)
+            
+            if not exa_companies:
+                raise Exception("No companies under 100 employees found via Exa direct mode.")
+            
+            print(f"✅ {len(exa_companies)} companies verified under {MAX_COMPANY_SIZE} employees")
             
             # Phase 8: Enrich ALL Companies with World-Class Playwright (BEFORE selecting top 4)
             print(f"🧠 Phase 8: Enriching ALL {len(exa_companies)} companies with Playwright intelligence...")

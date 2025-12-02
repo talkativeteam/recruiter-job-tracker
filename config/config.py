@@ -53,7 +53,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds (exponential backoff base)
 
 # Company filtering
-MAX_COMPANY_SIZE = 200  # employees (broadened ~30%+ to avoid over-filtering)
+MAX_COMPANY_SIZE = 100  # employees (strict filter)
 
 # LinkedIn search parameters
 LINKEDIN_BASE_URL = "https://www.linkedin.com/jobs/search/"
