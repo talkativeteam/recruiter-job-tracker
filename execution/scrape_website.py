@@ -22,17 +22,34 @@ class WebsiteScraper:
         self.run_id = run_id
         self.logger = SupabaseLogger() if run_id else None
     
+    def normalize_url(self, url: str) -> str:
+        """
+        Normalize URL: ensure https, handle www/non-www
+        Returns: normalized URL
+        """
+        url = url.strip()
+        
+        # Add https if no scheme
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+        
+        return url
+    
     def scrape_http(self, url: str) -> Tuple[bool, Optional[str], str]:
         """
         Try plain HTTP request (FREE)
         Returns: (success, content, method)
         """
+        # Normalize URL
+        url = self.normalize_url(url)
+        
         try:
             print(f"🔍 Trying HTTP request for {url}...")
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
             }
-            response = requests.get(url, timeout=TIMEOUT_HTTP, headers=headers)
+            # CRITICAL: Follow redirects (allow_redirects=True by default, but explicit for clarity)
+            response = requests.get(url, timeout=TIMEOUT_HTTP, headers=headers, allow_redirects=True)
             response.raise_for_status()
             
             # Parse HTML and convert to Markdown
@@ -57,6 +74,26 @@ class WebsiteScraper:
             return False, None, "http"
         except requests.exceptions.RequestException as e:
             print(f"❌ HTTP request failed: {e}")
+            
+            # FALLBACK: If www. domain failed, try without www
+            if 'www.' in url:
+                try:
+                    non_www_url = url.replace('://www.', '://')
+                    print(f"🔄 Retrying without www: {non_www_url}...")
+                    response = requests.get(non_www_url, timeout=TIMEOUT_HTTP, headers=headers, allow_redirects=True)
+                    response.raise_for_status()
+                    
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    for script in soup(["script", "style", "nav", "footer"]):
+                        script.decompose()
+                    
+                    markdown_content = md(str(soup))
+                    if len(markdown_content) >= 500:
+                        print(f"✅ HTTP request successful without www ({len(markdown_content)} characters)")
+                        return True, markdown_content, "http"
+                except:
+                    pass
+            
             return False, None, "http"
     
     def scrape_playwright(self, url: str) -> Tuple[bool, Optional[str], str]:
@@ -64,6 +101,9 @@ class WebsiteScraper:
         Try Playwright (FREE, but requires installation)
         Returns: (success, content, method)
         """
+        # Normalize URL
+        url = self.normalize_url(url)
+        
         try:
             print(f"🎭 Trying Playwright for {url}...")
             from playwright.sync_api import sync_playwright
@@ -99,6 +139,34 @@ class WebsiteScraper:
             return False, None, "playwright"
         except Exception as e:
             print(f"❌ Playwright failed: {e}")
+            
+            # FALLBACK: If www. domain failed, try without www
+            if 'www.' in url:
+                try:
+                    non_www_url = url.replace('://www.', '://')
+                    print(f"🔄 Retrying Playwright without www: {non_www_url}...")
+                    from playwright.sync_api import sync_playwright
+                    
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        page = browser.new_page()
+                        page.goto(non_www_url, timeout=TIMEOUT_PLAYWRIGHT * 1000)
+                        page.wait_for_load_state("networkidle", timeout=TIMEOUT_PLAYWRIGHT * 1000)
+                        
+                        html_content = page.content()
+                        soup = BeautifulSoup(html_content, 'html.parser')
+                        for script in soup(["script", "style", "nav", "footer"]):
+                            script.decompose()
+                        
+                        markdown_content = md(str(soup))
+                        browser.close()
+                        
+                        if len(markdown_content) >= 500:
+                            print(f"✅ Playwright successful without www ({len(markdown_content)} characters)")
+                            return True, markdown_content, "playwright"
+                except:
+                    pass
+            
             return False, None, "playwright"
     
     def scrape_bright_data(self, url: str) -> Tuple[bool, Optional[str], str]:
