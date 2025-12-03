@@ -118,17 +118,8 @@ Your call."""
         if word_count > 300:
             print(f"⚠️ Email slightly over target (300 words), but quality is priority")
         
-        # Humanize the email for better readability
-        print("🎨 Humanizing email for natural tone...")
-        humanized_email = self.openai_caller.humanize_email(email)
-        
-        if humanized_email:
-            humanized_word_count = len(humanized_email.split())
-            print(f"✅ Email humanized: {humanized_word_count} words")
-            return humanized_email
-        else:
-            print(f"⚠️ Humanization failed, using original email")
-            return email
+        print(f"✅ Email complete")
+        return email
     
     def save_email(self, email: str, output_path: str):
         """
