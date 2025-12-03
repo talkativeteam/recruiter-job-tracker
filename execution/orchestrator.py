@@ -526,73 +526,72 @@ class Orchestrator:
                 print(f"🔄 SUPPLEMENTING WITH EXA: Need at least 2 companies for email")
                 
                 try:
-                
-                # Preserve LinkedIn validated companies
-                linkedin_validated_companies = validated_companies.copy()
-                
-                # Use Exa to find additional companies
-                print("🔍 Phase 7a: Using Exa to supplement with more ICP-matching companies...")
-                if not self.exa_finder:
-                    self.exa_finder = ExaCompanyFinder(run_id=self.run_id)
-                
-                exa_companies = self.exa_finder.find_companies(
-                    icp_data=self.recruiter_icp,
-                    max_results=20
-                )
-                
-                if exa_companies and len(exa_companies) > 0:
-                    print(f"✅ Exa found {len(exa_companies)} additional ICP-matching companies")
+                    # Preserve LinkedIn validated companies
+                    linkedin_validated_companies = validated_companies.copy()
                     
-                    # Verify employee counts
-                    print(f"🔍 Verifying employee counts for {len(exa_companies)} companies...")
-                    headcount_verifier = HeadcountVerifier(run_id=self.run_id)
-                    exa_companies = headcount_verifier.verify_companies(exa_companies, max_employees=MAX_COMPANY_SIZE)
+                    # Use Exa to find additional companies
+                    print("🔍 Phase 7a: Using Exa to supplement with more ICP-matching companies...")
+                    if not self.exa_finder:
+                        self.exa_finder = ExaCompanyFinder(run_id=self.run_id)
                     
-                    if exa_companies:
-                        print(f"✅ {len(exa_companies)} Exa companies verified under {MAX_COMPANY_SIZE} employees")
+                    exa_companies = self.exa_finder.find_companies(
+                        icp_data=self.recruiter_icp,
+                        max_results=20
+                    )
+                    
+                    if exa_companies and len(exa_companies) > 0:
+                        print(f"✅ Exa found {len(exa_companies)} additional ICP-matching companies")
                         
-                        # Enrich Exa companies
-                        print(f"🧠 Enriching {len(exa_companies)} Exa companies...")
-                        enricher = CompanyIntelligence()
-                        exa_for_enrichment = []
-                        for company in exa_companies:
-                            exa_for_enrichment.append({
-                                "name": company.get("name"),
-                                "description": company.get("description", ""),
-                                "website": company.get("website"),
-                                "jobs": company.get("jobs", [])
-                            })
+                        # Verify employee counts
+                        print(f"🔍 Verifying employee counts for {len(exa_companies)} companies...")
+                        headcount_verifier = HeadcountVerifier(run_id=self.run_id)
+                        exa_companies = headcount_verifier.verify_companies(exa_companies, max_employees=MAX_COMPANY_SIZE)
                         
-                        enriched_data = enricher.enrich_companies(exa_for_enrichment)
-                        
-                        # Update companies with enrichment
-                        for company in exa_companies:
-                            company_name = company.get("name")
-                            if company_name in enriched_data:
-                                company["enrichment"] = enriched_data[company_name]
-                                enriched_desc = enriched_data[company_name].get("insider_intelligence", {}).get("what_they_do", "")
-                                if enriched_desc:
-                                    company["description"] = f"{enriched_desc}. {company.get('description', '')}"
-                        
-                        # Validate Exa companies with ICP validator
-                        print(f"🎯 Validating {len(exa_companies)} Exa companies against ICP...")
-                        job_validator = JobICPValidator(run_id=self.run_id)
-                        exa_validated = job_validator.validate_jobs_for_companies(
-                            companies=exa_companies,
-                            icp=self.recruiter_icp
-                        )
-                        
-                        # Merge LinkedIn and Exa validated companies (deduplicate by name)
-                        existing_names = {c.get('name', '').lower() for c in linkedin_validated_companies}
-                        exa_only = [c for c in exa_validated if c.get('name', '').lower() not in existing_names]
-                        validated_companies = linkedin_validated_companies + exa_only
-                        
-                        print(f"✅ Combined: {len(linkedin_validated_companies)} LinkedIn + {len(exa_only)} Exa = {len(validated_companies)} total validated companies")
-                        self.stats["data_source"] = "linkedin+exa"
+                        if exa_companies:
+                            print(f"✅ {len(exa_companies)} Exa companies verified under {MAX_COMPANY_SIZE} employees")
+                            
+                            # Enrich Exa companies
+                            print(f"🧠 Enriching {len(exa_companies)} Exa companies...")
+                            enricher = CompanyIntelligence()
+                            exa_for_enrichment = []
+                            for company in exa_companies:
+                                exa_for_enrichment.append({
+                                    "name": company.get("name"),
+                                    "description": company.get("description", ""),
+                                    "website": company.get("website"),
+                                    "jobs": company.get("jobs", [])
+                                })
+                            
+                            enriched_data = enricher.enrich_companies(exa_for_enrichment)
+                            
+                            # Update companies with enrichment
+                            for company in exa_companies:
+                                company_name = company.get("name")
+                                if company_name in enriched_data:
+                                    company["enrichment"] = enriched_data[company_name]
+                                    enriched_desc = enriched_data[company_name].get("insider_intelligence", {}).get("what_they_do", "")
+                                    if enriched_desc:
+                                        company["description"] = f"{enriched_desc}. {company.get('description', '')}"
+                            
+                            # Validate Exa companies with ICP validator
+                            print(f"🎯 Validating {len(exa_companies)} Exa companies against ICP...")
+                            job_validator = JobICPValidator(run_id=self.run_id)
+                            exa_validated = job_validator.validate_jobs_for_companies(
+                                companies=exa_companies,
+                                icp=self.recruiter_icp
+                            )
+                            
+                            # Merge LinkedIn and Exa validated companies (deduplicate by name)
+                            existing_names = {c.get('name', '').lower() for c in linkedin_validated_companies}
+                            exa_only = [c for c in exa_validated if c.get('name', '').lower() not in existing_names]
+                            validated_companies = linkedin_validated_companies + exa_only
+                            
+                            print(f"✅ Combined: {len(linkedin_validated_companies)} LinkedIn + {len(exa_only)} Exa = {len(validated_companies)} total validated companies")
+                            self.stats["data_source"] = "linkedin+exa"
+                        else:
+                            print(f"⚠️ No Exa companies passed employee count verification")
                     else:
-                        print(f"⚠️ No Exa companies passed employee count verification")
-                else:
-                    print(f"⚠️ Exa found 0 additional companies")
+                        print(f"⚠️ Exa found 0 additional companies")
                 
                 except Exception as e:
                     print(f"❌ Exa supplement failed: {e}")
