@@ -4,13 +4,40 @@ Centralized storage for all AI prompts used in the system
 """
 
 # Phase 2: Identify Recruiter ICP
-PROMPT_IDENTIFY_ICP = """You have been given a scrape of a company website of a recruiter, identify their target market and the roles they fill, and where they fill those roles (ie what countries). 
+PROMPT_IDENTIFY_ICP = """You have been given a scrape of a company website of a recruiter, identify their target market and the roles they fill, and where they fill those roles (ie what countries).
 
-Rules for Geography:
+CRITICAL DISTINCTION:
+- "Industries" = The TYPE OF COMPANIES the recruiter's clients are (e.g., "Digital Agencies", "Creative Agencies", "SaaS Companies", "Fintech Companies")
+- "Roles" = The JOB TITLES they fill (e.g., "Product Manager", "Web Developer", "UX Designer")
+
+Example: If they say "we recruit Product Managers for digital agencies" → industries: ["Digital Agencies", "Creative Agencies"], roles: ["Product Manager"]
+
+Your task is to analyze the recruiter's website content and extract:
+1. **Industries they serve** – Prefer specific company types, BUT include broader/adjacent categories when the site positions as multi-sector or generalist (aim 6–10 items if available).
+2. **Company sizes** they target (give ranges; if unclear, infer a broader band such as "10–250" rather than a narrow slice).
+3. **Geographies** they operate in (countries, states, cities; list multiple where relevant).
+4. **Roles they fill** – List precise titles AND adjacent equivalents across functions (leadership, sales, engineering, marketing, operations, clinical/technical as applicable).
+5. **Keywords** for Boolean search (variations + synonyms; include adjacent role phrasing).
+6. **Primary country** for LinkedIn search
+7. **LinkedIn geoId** for that country
+
+CRITICAL Rules for Industries:
+- Prefer specificity when clearly stated, but if positioning is broad (e.g., “sectors we cover: radiology, cardiology, robotics, patient care”), include adjacent/broader categories too. Avoid collapsing to a single umbrella like "Technology"; instead list multiple relevant sectors.
+- Look for phrases like "we work with", "our clients are", "we specialize in", "we serve".
+- Examples: "Creative Agencies", "SaaS Startups", "Healthcare Providers", "MedTech", "Neurovascular", "Robotics", "Manufacturing", "Financial Services Firms".
+
+CRITICAL Rules for Geography:
 - Look for ANY location indicators: address, phone numbers, currency symbols (£=UK, $=US, €=EU), domain extensions (.co.uk, .com, .ca)
 - If geographies are listed in order (e.g., "UK, EMEA, APAC, US"), the FIRST one is the primary market
 - Look for "based in", "located in", "operating from" phrases to identify headquarters
 - Email domains can indicate location (.co.uk = UK, .ca = Canada)
+- The primary country is where the recruiter is BASED, not just where they recruit
+
+Role Extraction Rules:
+- Be SPECIFIC about roles (e.g., "Network Engineer"), but ALSO add adjacent/related titles that recruiters commonly place (e.g., "Clinical Account Manager", "Technical Account Manager", "Sales Engineer").
+- Include role variations and synonyms (e.g., "Cybersecurity Engineer" OR "Cyber Security Engineer").
+- Extract company size ranges if mentioned; if unclear, infer reasonable, slightly broader ranges.
+- Identify ALL geographies mentioned.
 
 LinkedIn geoId Reference:
 - United Kingdom: 101165590
@@ -23,44 +50,109 @@ LinkedIn geoId Reference:
 Website Content:
 {website_content}
 
-Output as JSON:
+Output (JSON only, no explanation):
 {{
-  "recruiter_summary": "Brief 2-3 sentence summary of what the recruiter does, their target market (ICP), which industries/company types they serve, and which roles they typically fill",
+  "industries": ["SPECIFIC Company Type 1", "SPECIFIC Company Type 2"],
+  "company_sizes": ["10-100 employees"],
+  "geographies": ["United States", "California"],
+  "roles_filled": [
+    "Specific Role Title 1",
+    "Specific Role Title 2"
+  ],
+  "boolean_keywords": [
+    "Role Keyword 1",
+    "Role Keyword 2 Variation"
+  ],
   "primary_country": "United States",
   "linkedin_geo_id": "103644278"
 }}
+
+Examples:
+- Good: {{"industries": ["Digital Agencies", "Creative Agencies"], "roles_filled": ["Product Manager", "UX Designer"]}}
+- Bad: {{"industries": ["Technology"], "roles_filled": ["Tech roles"]}}
 """
 
 # Phase 3: Generate Boolean Search
-PROMPT_GENERATE_BOOLEAN_SEARCH = """The below data is the ICP of a recruitment company. Your job is to create a boolean search that can be used for LinkedIn jobs that would capture the roles they fill.
+PROMPT_GENERATE_BOOLEAN_SEARCH = """You are a LinkedIn Boolean search expert. Your job is to create MASSIVE quoted boolean searches with ~30% broader coverage using the 50/50 STRATEGY and adjacent-role expansion.
 
-CRITICAL: The boolean search MUST be under 910 characters total (LinkedIn limit). Keep it focused and efficient.
+CRITICAL 50/50 STRATEGY:
+- 50% GENERIC roles: Universal titles used across all industries
+- 50% INDUSTRY-MAPPED roles: How these roles are actually called in the recruiter's target industry
+- Include 20–36 total quoted variations (still close to 20–30, but allow expansion when useful).
 
-The boolean search should capture the most important roles they fill. If their ICP is very niche, then put job titles that might be specific to that industry.
+This ensures we catch BOTH generic postings AND industry-specific nomenclature.
 
-An example of a good boolean (for an MSP recruiter for example) is the below:
+FALLBACK STRATEGY:
+1. Try 24 hours: Massive boolean with 20-30 quoted variations (50% generic + 50% industry-mapped)
+2. Try 7 days: Same boolean, longer timeframe
+3. Fall back to Exa: If LinkedIn returns too few jobs (< 5)
 
-("Help Desk Support" OR "IT Help Desk Support" OR "Help Desk Technician" OR "Tier 1 Support" OR "Tier 2 Support" OR "Tier 3 Support" OR "IT Service Desk" OR "IT Support Engineer" OR "Help Desk Manager" OR "IT Technician" OR "IT Field Technician" OR "System Administrator" OR "Network Engineer" OR "Cybersecurity Engineer" OR "Cyber Security Engineer" OR "IT Project Engineer" OR "Virtualization Engineer" OR "Cloud Engineer" OR "NOC Engineer" OR "Network Operations Center Technician" OR "Incident Response Engineer" OR "IR Engineer" OR "Machine Learning Engineer" OR "ML Engineer" OR "AI Engineer" OR "AI/ML Engineer" OR "Deep Learning Engineer" OR "MLOps Engineer" OR "ML Ops Engineer" OR "Applied Scientist" OR "Machine Learning Scientist" OR "NLP Engineer" OR "Computer Vision Engineer" OR "Generative AI Engineer")
+BOOLEAN SEARCH RULES (USE QUOTES):
+1. Use quotes around EVERY role title: "VP of Sales" OR "Sales Director"
+2. Generate 20–36 role variations (10–18 generic + 10–18 industry-mapped)
+3. Include ALL seniority levels for BOTH generic AND industry-mapped and add adjacent functions when it’s commonly interchangeable in the industry (e.g., Sales ↔ Commercial, CS ↔ Account Management):
+   - Entry/Mid: Manager, Senior Manager, Associate Director
+   - Director: Director, Senior Director, Executive Director
+   - VP: VP, Vice President, SVP, Executive VP
+   - C-Suite: Chief Officer, Head of, EVP
 
-Or another example would be if this was the companies icp:
+INDUSTRY-SPECIFIC MAPPING EXAMPLES:
 
-Projectus Consulting places senior MedTech talent in high-impact roles directly tied to device adoption, commercialization, and clinical outcomes.
-They serve scaling medical device companies, surgical robotics companies, implant manufacturers, and advanced diagnostics firms (Class II/III) that need commercial leadership, clinical applications, regulatory, or R&D engineering talent.
-They fill roles close to the surgeon, payer, or buyer — the people who drive revenue, enable procedures, or navigate reimbursement, not generic ops or junior tech.
+🏥 MEDICAL TECHNOLOGY / HEALTHCARE / BIOTECH:
+Generic Sales → Industry-Mapped:
+- "VP of Sales" → "Chief Commercial Officer", "VP of Commercial Operations", "VP of Market Access", "VP of Clinical Sales"
+- "Sales Director" → "Director of Commercialization", "Director of Clinical Solutions", "Director of Medical Device Sales"
+- "Business Development Director" → "Director of Strategic Partnerships", "Director of Healthcare Partnerships", "Director of Provider Engagement"
+- "Account Executive" → "Clinical Account Manager", "Territory Manager", "Medical Device Sales Representative"
+- "Revenue Director" → "Director of Payer Strategy", "Director of Reimbursement", "VP of Health System Partnerships"
 
-The ideal boolean for that would be something like this:
+🎨 CREATIVE / DIGITAL AGENCIES:
+Generic Marketing → Industry-Mapped:
+- "CMO" → "Chief Creative Officer", "Executive Creative Director", "CCO"
+- "Marketing Director" → "Creative Director", "Director of Client Services", "Studio Director"
+- "Brand Manager" → "Creative Strategist", "Brand Strategist", "Account Director"
+- "VP Marketing" → "VP of Creative", "VP of Client Strategy", "Head of Studio"
 
-("VP Sales" OR "Vice President Sales" OR "Head of Sales" OR "Director of Sales" OR "Regional Sales Director" OR "Commercial Director" OR "Commercial Manager" OR "Sales Leader" OR "Sales Manager" OR "Territory Manager" OR "Area Sales Manager" OR "Market Access Director" OR "Director Market Access" OR "Manager Market Access" OR "Therapy Development Manager" OR "Field Clinical Specialist" OR "Clinical Applications Specialist" OR "Clinical Specialist" OR "Clinical Field Specialist" OR "Clinical Support Specialist" OR "Director Regulatory Affairs" OR "Head Regulatory Affairs" OR "Senior Regulatory Affairs" OR "QA Director" OR "Director Quality" OR "Director Quality Assurance" OR "R&D Manager" OR "Senior R&D Engineer" OR "Principal R&D Engineer" OR "Senior Mechanical Engineer" OR "Senior Embedded Engineer" OR "Embedded Software Engineer" OR "Senior Product Manager" OR "Director Product Management" OR "Director of Product" OR "Director Engineering" OR "VP Engineering" OR "Director of Business Development")
-AND
-("Medical Device" OR "MedTech" OR "Surgical" OR "Implant" OR "Spine" OR "Orthopedic" OR "Neuro" OR "Neurology" OR "Cardio" OR "Cardiovascular" OR "Vascular" OR "Stroke" OR "Electrophysiology" OR "EP" OR "Robotics" OR "Surgical Robotics" OR "Catheter" OR "Stent" OR "Endovascular" OR "Diagnostics" OR "Class II" OR "Class III")
+💻 SAAS / SOFTWARE / TECH:
+Generic Sales → Industry-Mapped:
+- "VP Sales" → "VP of Revenue", "Chief Revenue Officer", "VP of Growth"
+- "Sales Manager" → "Customer Success Manager", "Growth Manager", "Revenue Manager"
+- "Account Executive" → "Solutions Architect", "Sales Engineer", "Technical Account Manager"
+
+🏦 FINTECH / FINANCIAL SERVICES:
+Generic → Industry-Mapped:
+- "VP Sales" → "VP of Partnerships", "Head of Institutional Sales", "Director of Wholesale Banking"
+- "Product Manager" → "Product Owner", "Platform Manager", "Solutions Manager"
+
+NO INDUSTRY FILTER - Let AI validation handle it (95% of time). Prefer recall over precision by ~30%.
 
 ICP Data:
 {icp_data}
 
-Output as JSON:
-{{
-  "boolean_search": "Your boolean search string here with quoted role titles separated by OR"
-}}
+Your task:
+1. Identify core function: Sales, Marketing, Engineering, Operations, etc.
+2. Analyze recruiter's industries to map generic roles → industry-specific titles
+3. Generate 10-15 GENERIC quoted variations (all seniority levels)
+4. Generate 10-15 INDUSTRY-MAPPED quoted variations (how they're called in that industry)
+5. Combine both into one massive boolean (20-30 total variations)
+6. NO industry filter (let AI validation handle)
+
+Example Output for MedTech Sales:
+
+50% GENERIC (10 variations):
+"VP of Sales" OR "Vice President Sales" OR "SVP Sales" OR "Sales Director" OR "Director of Sales" OR "Head of Sales" OR "Chief Revenue Officer" OR "Senior Sales Director" OR "VP of Business Development" OR "Business Development Director"
+
+50% INDUSTRY-MAPPED (10 variations):
+"Chief Commercial Officer" OR "VP of Commercial Operations" OR "VP of Market Access" OR "Director of Commercialization" OR "Director of Clinical Solutions" OR "Director of Medical Device Sales" OR "VP of Clinical Sales" OR "Territory Manager" OR "Clinical Account Manager" OR "Director of Healthcare Partnerships"
+
+COMBINED (20 variations - 50/50 split):
+"VP of Sales" OR "Vice President Sales" OR "SVP Sales" OR "Sales Director" OR "Director of Sales" OR "Head of Sales" OR "Chief Revenue Officer" OR "Senior Sales Director" OR "VP of Business Development" OR "Business Development Director" OR "Chief Commercial Officer" OR "VP of Commercial Operations" OR "VP of Market Access" OR "Director of Commercialization" OR "Director of Clinical Solutions" OR "Director of Medical Device Sales" OR "VP of Clinical Sales" OR "Territory Manager" OR "Clinical Account Manager" OR "Director of Healthcare Partnerships"
+
+Output (JSON only):
+{{{{
+  "boolean_search": "\"generic1\" OR \"generic2\" OR ... OR \"mapped1\" OR \"mapped2\" OR ...",
+  "rationale": "20-30 variations: 50% generic + 50% industry-mapped for [industry]"
+}}}}
 """
 
 # Phase 5: Validate Direct Hirer
@@ -214,7 +306,6 @@ CRITICAL RULES:
 9. No signature or extra closing lines
 10. Output plain text only, NO JSON, NO MARKDOWN
 11. NEVER repeat the same company twice - group all their roles together
-12. USE VALIDATION CONTEXT: Each role has validation_reason field. If it indicates strong fit, frame confidently ("perfect match for your portfolio"). If it shows borderline fit, acknowledge transparently ("not a perfect fit but worth exploring because..."). Be honest and helpful.
 
 Companies data to include:
 {companies_data}

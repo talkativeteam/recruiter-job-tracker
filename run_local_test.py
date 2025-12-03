@@ -33,9 +33,9 @@ def run_local_test(input_file=None):
             "client_website": "https://dunnesearchgroup.com/",
             "email_sender_name": "Sid Kennedy",
             "email_sender_address": "kenne.s@talkativecrew.com",
-            "max_jobs_to_scrape": 100,
+            "max_jobs_to_scrape": 400,
             "callback_webhook_url": None,
-            "recruiter_timezone": "EST"
+            "recruiter_timezone": ""
         }
     
     print("=" * 80)

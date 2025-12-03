@@ -197,30 +197,21 @@ class DeepICPExtractor:
         # Extract domain for geography hints
         domain = urlparse(base_url).netloc
         
-        prompt = f"""You are an expert at analyzing recruiter websites to extract their Ideal Client Profile (ICP) and the specific roles they fill. Prefer recall over precision by ~30%: include adjacent/related industries and cross-functional role families when the site presents as multi-sector.
+        prompt = f"""Analyze this recruiter's website and write a precise 2-3 sentence summary.
 
-Your task is to analyze the recruiter's website content from multiple pages and extract:
-1. Industries they serve (list all explicit sectors and close adjacencies; e.g., "MedTech", "Radiology", "Neurovascular", "Cardiology", "Robotics", "Patient Care", "Urology"). Return many if present.
-2. Company sizes they target (give ranges; if unclear, use broader ranges like "10–250").
-3. Geographies they operate in (countries, states, cities; include multiple where relevant).
-4. Roles they fill – include precise titles AND role families (Leadership/C‑suite, Sales/Commercial, Engineering, Technical, Operations, Marketing, Clinical). Include adjacent equivalents.
-5. Keywords for Boolean search (variations + synonyms; include adjacent role phrasing).
-6. Primary country for LinkedIn search
-7. LinkedIn geoId for that country
+CRITICAL: Be SPECIFIC about:
+1. BUYER TYPE: Who hires from them? (e.g., "health systems", "diagnostics labs", "medical device companies", "biotech startups", NOT just "healthcare companies")
+2. JOB CATEGORIES: Exact role types (e.g., "clinical sales", "diagnostic sales reps", "lab device specialists", NOT just "sales managers")
+
+Good example: "This recruiter helps molecular diagnostics companies and health systems find clinical sales specialists and territory managers who sell lab equipment and diagnostic devices directly to physicians and lab directors in the United States."
+
+Bad example: "This recruiter helps companies find talented people for jobs like sales managers and marketing executives."
 
 CRITICAL Rules for Geography:
 - Look for ANY location indicators: address, phone numbers, currency symbols (£=UK, $=US, €=EU), domain extensions (.co.uk, .com, .ca)
 - If geographies are listed in order (e.g., "UK, EMEA, APAC, US"), the FIRST one is the primary market
 - Look for "based in", "located in", "operating from" phrases to identify headquarters
-- Email domains can indicate location (.co.uk = UK, .ca = Canada)
 - The primary country is where the recruiter is BASED, not just where they recruit
-
-Role Extraction Rules:
-- Be SPECIFIC about roles (e.g., "Sales Director", "Marketing Manager", "Business Development Manager"), AND include adjacent functional equivalents.
-- Include role variations and levels (e.g., "Sales Manager", "VP Sales", "Head of Sales").
-- Extract company size ranges if mentioned; if unclear, infer slightly broader ranges.
-- Identify ALL geographies mentioned.
-- Pay special attention to "About", "Services", "Sectors", "Team Build", "Specialisms", "Expertise" pages for detailed ICP info.
 
 LinkedIn geoId Reference:
 - United Kingdom: 101165590
@@ -232,30 +223,21 @@ LinkedIn geoId Reference:
 
 Domain: {domain}
 
-Website Content from Multiple Pages:
+Website Content:
 {combined_content}
 
-Output (JSON only, no explanation):
+Output JSON:
 {{
-  "industries": ["Industry 1", "Industry 2"],
-  "company_sizes": ["10-100 employees"],
-  "geographies": ["United States", "California"],
-  "roles_filled": [
-    "Specific Role Title 1",
-    "Specific Role Title 2"
-  ],
-  "boolean_keywords": [
-    "Role Keyword 1",
-    "Role Keyword 2 Variation"
-  ],
+  "recruiter_summary": "Brief 2-3 sentence summary",
   "primary_country": "United States",
   "linkedin_geo_id": "103644278"
 }}"""
 
-        # Call OpenAI
+        # Call OpenAI with upgraded model for precision
         response = self.openai_caller.call_with_retry(
             prompt=prompt,
             model="gpt-4o-mini",
+            temperature=0.1,
             response_format="json"
         )
         
@@ -271,9 +253,7 @@ Output (JSON only, no explanation):
                 )
             
             print(f"  ✅ Deep ICP extracted:")
-            print(f"    Industries: {', '.join(icp_data.get('industries', []))}")
-            print(f"    Roles: {', '.join(icp_data.get('roles_filled', [])[:3])}...")
-            print(f"    Geographies: {', '.join(icp_data.get('geographies', []))}")
+            print(f"    Summary: {icp_data.get('recruiter_summary', 'N/A')}")
             
             return icp_data
             

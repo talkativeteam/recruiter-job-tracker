@@ -91,10 +91,10 @@ class CompanyPrioritizer:
         """
         score = 0.0
         
-        # Industry match (40%)
+        # Industry match (40%) - check if company industry appears in recruiter summary
         company_industry = company.get("company_industry", "").lower()
-        target_industries = [ind.lower() for ind in icp_data.get("industries", [])]
-        if any(target_ind in company_industry for target_ind in target_industries):
+        recruiter_summary = icp_data.get("recruiter_summary", "").lower()
+        if company_industry and company_industry in recruiter_summary:
             score += 0.4
         
         # Size match (20%)
@@ -107,13 +107,15 @@ class CompanyPrioritizer:
         if 10 <= employee_count <= 100:
             score += 0.2
         
-        # Role alignment (40%)
-        target_roles = [role.lower() for role in icp_data.get("roles_filled", [])]
+        # Role alignment (40%) - check if job titles appear in recruiter summary
+        recruiter_summary = icp_data.get("recruiter_summary", "").lower()
         company_roles = [job["job_title"].lower() for job in company.get("jobs", [])]
         
+        # Extract key role words (manager, director, vp, etc.)
+        role_keywords = ["manager", "director", "vp", "vice president", "head of", "chief", "lead", "senior"]
         matches = sum(1 for company_role in company_roles 
-                     if any(target_role in company_role or company_role in target_role 
-                           for target_role in target_roles))
+                     if any(keyword in company_role and keyword in recruiter_summary 
+                           for keyword in role_keywords))
         
         if company_roles:
             role_match_ratio = matches / len(company_roles)

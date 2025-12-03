@@ -263,6 +263,10 @@ class OpenAICaller:
             # $0.150 per 1M input, $0.600 per 1M output
             input_cost = (input_tokens / 1_000_000) * 0.150
             output_cost = (output_tokens / 1_000_000) * 0.600
+        elif "gpt-4.1-mini" in model or "gpt-4.1" in model:
+            # $0.40 per 1M input, $1.60 per 1M output (gpt-4.1-mini pricing)
+            input_cost = (input_tokens / 1_000_000) * 0.40
+            output_cost = (output_tokens / 1_000_000) * 1.60
         elif "gpt-4-turbo" in model or "gpt-4" in model:
             # $10 per 1M input, $30 per 1M output
             input_cost = (input_tokens / 1_000_000) * 10.0
@@ -273,6 +277,21 @@ class OpenAICaller:
             output_cost = (output_tokens / 1_000_000) * 0.600
         
         return input_cost + output_cost
+    
+    def humanize_email(self, original_email: str) -> Optional[str]:
+        """Phase 10: Humanize generated email to make it more natural and engaging"""
+        prompt = ai_prompts.format_humanize_email_prompt(original_email)
+        
+        # Use GPT-4 for best humanization quality
+        response = self.call_with_retry(
+            prompt, 
+            model=MODEL_PREMIUM,  # Use GPT-4 for quality
+            temperature=0.8,  # Higher temp for more natural variation
+            max_tokens=1000,
+            response_format="text"
+        )
+        
+        return response
     
     def get_cost_estimate_str(self) -> str:
         """Get formatted cost string"""

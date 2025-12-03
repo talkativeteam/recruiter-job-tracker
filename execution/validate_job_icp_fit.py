@@ -31,10 +31,7 @@ class JobICPValidator:
             List of companies with only validated jobs (companies with 0 valid jobs are removed)
         """
         print(f"\n🔍 CRITICAL VALIDATION: Checking job-ICP fit for {len(companies)} companies...")
-        print(f"  Recruiter ICP:")
-        print(f"    Industries: {', '.join(recruiter_icp.get('industries', []))}")
-        print(f"    Roles: {', '.join(recruiter_icp.get('roles_filled', [])[:5])}...")
-        print(f"    Seniority: {self._infer_seniority_level(recruiter_icp)}")
+        print(f"  Recruiter ICP: {recruiter_icp.get('recruiter_summary', 'N/A')}")
         
         validated_companies = []
         
@@ -53,7 +50,10 @@ class JobICPValidator:
                 is_valid, reason = self._validate_single_job(job, company, recruiter_icp)
                 
                 if is_valid:
-                    valid_jobs.append(job)
+                    # Store validation reason with job for email context
+                    job_with_reason = job.copy()
+                    job_with_reason["validation_reason"] = reason
+                    valid_jobs.append(job_with_reason)
                     self.passed_count += 1
                     job_title = job.get("title") or job.get("job_title", "Unknown")
                     print(f"    ✅ {job_title}")
@@ -101,11 +101,11 @@ class JobICPValidator:
             recruiter_icp=recruiter_icp
         )
         
-        # Call OpenAI for validation
+        # Call OpenAI with upgraded model for stricter validation
         response = self.openai_caller.call_with_retry(
             prompt=prompt,
-            model="gpt-4o-mini",
-            temperature=0.1,  # Very low temperature for consistent validation
+            model="gpt-4.1-mini",
+            temperature=0.05,  # Ultra-low temperature for strictest validation
             response_format="json"
         )
         
@@ -132,101 +132,48 @@ class JobICPValidator:
                                 recruiter_icp: Dict[str, Any]) -> str:
         """Build prompt for job-ICP validation"""
         
-        seniority_level = self._infer_seniority_level(recruiter_icp)
+        recruiter_summary = recruiter_icp.get('recruiter_summary', 'No summary available')
         
-        return f"""You are a recruiter matching expert. Determine if this job is a STRONG MATCH for the recruiter's ICP.
+        return f"""Does this job match what the recruiter does?
 
-CRITICAL: This must be a PRECISE match. The recruiter specializes in specific industries, roles, and seniority levels.
+CRITICAL: The recruiter finds people to fill jobs AT companies. They do NOT work at these companies.
 
-RECRUITER'S ICP:
-Industries: {', '.join(recruiter_icp.get('industries', []))}
-Roles They Fill: {', '.join(recruiter_icp.get('roles_filled', []))}
-Inferred Seniority Level: {seniority_level}
-Geography: {', '.join(recruiter_icp.get('geographies', []))}
+RECRUITER:
+{recruiter_summary}
 
-JOB TO VALIDATE:
+JOB:
 Company: {company_name}
-Company Description: {company_description}
-Job Title: {job_title}
-Job Description: {job_description}
+Description: {company_description}
+Title: {job_title}
+Job Details: {job_description}
 
-VALIDATION RULES:
-1. **Industry Match is MANDATORY**
-   - Company must be in one of the recruiter's target industries
-   - Example: If recruiter serves "CPG", company must be in food/beverage/consumer products
-   - REJECT if wrong industry (e.g., "Biotech" when recruiter serves "CPG")
+VALIDATION RULES (STRICT):
+1. **REJECT if company is a recruiting/staffing/consulting agency** - The recruiter doesn't place roles AT other recruiting firms
+   - INSTANT REJECT keywords: "recruitment", "staffing", "talent", "headhunting", "executive search", "our client", "client company"
+   - INSTANT REJECT if company description is vague/generic: "Empowering Businesses", "Scalable Solutions", "Innovative Technology", "Unmatched Productivity", "Career Development", "Resume Writing", "ATS-friendly" with NO specific product/service
+   - INSTANT REJECT if job description says "our client" or "client is" - this means consulting/recruiting firm placing for someone else
 
-2. **Role Type Match - Be FLEXIBLE with variations**
-   - Job title should align with recruiter's functional area
-   - Example: If recruiter fills "Marketing Manager", ACCEPT "Marketing Communications Manager", "Brand Manager", "Product Marketing Manager"
-   - Example: If recruiter fills "VP Operations", ACCEPT "Director of Operations", "Head of Manufacturing"
-   - REJECT only if completely different function (e.g., "Accounts Payable" when recruiter fills "Sales")
+2. **REJECT if company is wrong industry vertical OR has no real product**
+   - Example: If recruiter serves "molecular diagnostics", REJECT "vending machines", "hospitality", "retail", "food service", "luxury amenities", "consumer goods"
+   - REJECT lead gen companies, course sellers, coaching platforms, career services, resume builders
+   - REJECT if company description mentions "courses", "coaching", "training", "learning platform", "career development", "job placement", "staffing solutions"
+   - ONLY accept if company has REAL product/service and directly serves the recruiter's buyer type (e.g., health systems, labs, physicians, diagnostic companies)
 
-3. **Seniority Level Match - FLEXIBLE within reasonable range**
-   - Inferred seniority: {seniority_level}
-   - If range includes both Executive + Mid-Level → ACCEPT Directors, VPs, Managers, Senior roles
-   - If Executive only → VP, Director, Head of, SVP, C-Suite
-   - If Mid-Level → Manager, Senior Manager, Team Lead, Senior Specialist
-   - Entry-level → Associate, Coordinator, Junior
-   - Be FLEXIBLE: "Senior Manager" can work for Executive search if strong role
+4. **Match the ROLE TYPE** - Is this the kind of role the recruiter fills?
+   - Example: If recruiter fills "clinical sales", accept "Territory Manager - Diagnostics", reject "VP Sales - Vending"
 
-4. **Geography** - Important but flexible
-   - Prefer matches in recruiter's geography
-   - Can be flexible for remote roles
+5. **Match SENIORITY** - Is this the right level?
+   - Be flexible with this: "Director" can work for exec search, but NOT if industry is mismatched
 
-SCORING:
-- is_match = true ONLY if ALL mandatory criteria match
-- confidence = "high" if perfect match, "medium" if close, "low" if borderline
-
-Output (JSON only):
+Output JSON:
 {{
   "is_match": true/false,
   "confidence": "high/medium/low",
-  "reason": "Brief explanation of match/mismatch",
+  "reason": "Why it matches or doesn't - be specific about company type",
   "industry_match": true/false,
   "role_match": true/false,
   "seniority_match": true/false
 }}"""
-    
-    def _infer_seniority_level(self, recruiter_icp: Dict[str, Any]) -> str:
-        """Infer seniority level from roles - returns range if mixed"""
-        roles = recruiter_icp.get("roles_filled", [])
-        industries = recruiter_icp.get("industries", [])
-        
-        has_executive = False
-        has_mid = False
-        has_entry = False
-        
-        # Check for executive indicators
-        executive_keywords = ["VP", "Vice President", "Director", "Head of", "Chief", "SVP", "C-Suite", "Executive", "GM", "General Manager"]
-        mid_keywords = ["Manager", "Senior", "Lead", "Sr."]
-        entry_keywords = ["Associate", "Coordinator", "Junior", "Assistant", "Analyst"]
-        
-        for role in roles:
-            role_lower = role.lower()
-            
-            # Check executive (VP, Director, Head, etc.)
-            if any(keyword.lower() in role_lower for keyword in executive_keywords):
-                has_executive = True
-            # Check mid-level (Manager, Senior, Lead) - but not if it's also executive
-            elif any(keyword.lower() in role_lower for keyword in mid_keywords):
-                has_mid = True
-            # Check entry-level
-            elif any(keyword.lower() in role_lower for keyword in entry_keywords):
-                has_entry = True
-        
-        # Return combined range if mixed levels
-        if has_executive and has_mid:
-            return "Executive to Mid-Level (Managers, Directors, VPs) ($80k-$500k+)"
-        elif has_executive:
-            return "Executive/Senior Leadership (Directors, VPs, C-Suite) ($150k-$500k+)"
-        elif has_mid:
-            return "Mid-Level Management (Managers, Senior roles) ($80k-$150k)"
-        elif has_entry:
-            return "Entry-Level/Individual Contributor ($40k-$80k)"
-        
-        # Default to broad mid-senior range
-        return "Mid-Senior Level ($80k-$200k)"
 
 
 def main():
@@ -236,9 +183,7 @@ def main():
     
     # Mock data for testing
     recruiter_icp = {
-        "industries": ["Consumer Packaged Goods", "Food & Beverage", "Manufacturing"],
-        "roles_filled": ["VP Operations", "Director Supply Chain", "Head of Procurement", "VP Sales"],
-        "geographies": ["United States"]
+        "recruiter_summary": "Recruiter specializing in CPG and food manufacturing, filling VP Operations, Director Supply Chain, and VP Sales roles in the United States."
     }
     
     companies = [

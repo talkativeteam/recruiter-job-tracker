@@ -27,38 +27,58 @@ class HeadcountVerifier:
             
         try:
             url = "https://real-time-web-search.p.rapidapi.com/search"
-            query = f"site:linkedin.com/company {company_name}"
-            
-            params = {
-                "q": query,
-                "num": 10,
-                "gl": "us",
-                "hl": "en"
-            }
-            
+            queries = [
+                f"site:linkedin.com/company {company_name}",
+                f"site:linkedin.com {company_name} company",
+                f"{company_name} LinkedIn company"
+            ]
             headers = {
                 "x-rapidapi-key": self.rapidapi_key,
                 "x-rapidapi-host": "real-time-web-search.p.rapidapi.com"
             }
-            
-            response = requests.get(url, params=params, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            data = response.json()
-            results = data.get("data", [])
-            
-            # Find first linkedin.com/company URL
-            for result in results:
-                link = result.get("url", "")
-                if "linkedin.com/company/" in link:
-                    # Clean up tracking params
-                    linkedin_url = link.split("?")[0]
-                    print(f"  ✅ Found LinkedIn: {linkedin_url}")
-                    return linkedin_url
-            
+            for attempt in range(1, 4):
+                for query in queries:
+                    params = {"q": query, "num": 10, "gl": "us", "hl": "en"}
+                    try:
+                        response = requests.get(url, params=params, headers=headers, timeout=10)
+                        response.raise_for_status()
+                        data = response.json()
+                    except Exception as e:
+                        if attempt < 3:
+                            time.sleep(1.5 * attempt)
+                            continue
+                        else:
+                            print(f"  ❌ RapidAPI search error for {company_name}: {e}")
+                            continue
+
+                    if isinstance(data, dict):
+                        results = data.get("data") or data.get("results") or data.get("items") or []
+                    elif isinstance(data, list):
+                        results = data
+                    else:
+                        results = []
+
+                    for result in results:
+                        if isinstance(result, str):
+                            link = result
+                        elif isinstance(result, dict):
+                            link = result.get("url") or result.get("link") or result.get("href") or ""
+                        else:
+                            link = ""
+                        if not link:
+                            continue
+                        # Normalize LinkedIn company URLs
+                        if "linkedin.com/company/" in link:
+                            linkedin_url = link.split("?")[0]
+                            print(f"  ✅ Found LinkedIn: {linkedin_url}")
+                            return linkedin_url
+                        # Handle links to linkedin.com pages that might redirect to company
+                        if "linkedin.com" in link and "/company" in link:
+                            linkedin_url = link.split("?")[0]
+                            print(f"  ✅ Found LinkedIn: {linkedin_url}")
+                            return linkedin_url
             print(f"  ⚠️ No LinkedIn URL found for {company_name}")
             return None
-            
         except Exception as e:
             print(f"  ❌ LinkedIn search failed for {company_name}: {e}")
             return None

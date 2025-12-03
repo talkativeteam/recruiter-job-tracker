@@ -121,11 +121,9 @@ class Orchestrator:
                 self.recruiter_icp["country_code"] = country_to_code.get(primary_country, "US")
             except:
                 self.recruiter_icp = {
-                    "industries": [],
-                    "roles": [],
-                    "skills": [],
-                    "seniority_levels": ["mid", "senior"],
-                    "keywords": []
+                    "recruiter_summary": "No ICP information available",
+                    "primary_country": "United States",
+                    "country_code": "US"
                 }
             
             print(f"✅ ICP extracted: {json.dumps(self.recruiter_icp, indent=2)}")
@@ -168,7 +166,19 @@ class Orchestrator:
                 geo_id = self.recruiter_icp.get("linkedin_geo_id", "101165590")
                 country_code = self.recruiter_icp.get("country_code", "US")
             
-            print(f"✅ Boolean search: {self.boolean_search}")
+            # CRITICAL: LinkedIn has a 910 character limit for boolean searches
+            if len(self.boolean_search) > 910:
+                print(f"⚠️ Boolean search too long ({len(self.boolean_search)} chars), truncating to 910...")
+                # Truncate at the last complete OR clause before 910 chars
+                truncated = self.boolean_search[:910]
+                last_or = truncated.rfind(' OR ')
+                if last_or > 0:
+                    self.boolean_search = truncated[:last_or]
+                else:
+                    self.boolean_search = truncated
+                print(f"✅ Truncated boolean search: {self.boolean_search}")
+            
+            print(f"✅ Boolean search ({len(self.boolean_search)} chars): {self.boolean_search}")
             
             # Phase 4: Scrape LinkedIn Jobs (with Exa fallback for niche ICPs)
             print(f"📊 Phase 4: Scraping LinkedIn jobs ({validated.get('max_jobs_to_scrape', 500)} max)...")
@@ -185,7 +195,8 @@ class Orchestrator:
             # URL encode the boolean search properly for LinkedIn public search
             import urllib.parse
             encoded_search = urllib.parse.quote(self.boolean_search)
-            linkedin_url_24h = f"https://www.linkedin.com/jobs/search/?keywords={encoded_search}&geoId={geo_id}&f_I=4&f_TPR=r86400&sortBy=R"
+            # Do not force industry filter; rely on role breadth gating
+            linkedin_url_24h = f"https://www.linkedin.com/jobs/search/?keywords={encoded_search}&geoId={geo_id}&f_TPR=r86400&sortBy=R"
             
             self.jobs_scraped = scraper.scrape_jobs(
                 linkedin_url=linkedin_url_24h,
@@ -196,7 +207,8 @@ class Orchestrator:
             if len(self.jobs_scraped) < minimum_acceptable_jobs:
                 print(f"⚠️ Only {len(self.jobs_scraped)} jobs found in 24h (need {minimum_acceptable_jobs})")
                 print(f"🔄 Attempt 2: Retrying with past 7 days (r604800)...")
-                linkedin_url_7d = f"https://www.linkedin.com/jobs/search/?keywords={encoded_search}&geoId={geo_id}&f_I=4&f_TPR=r604800&sortBy=R"
+                # Do not force industry filter; rely on role breadth gating
+                linkedin_url_7d = f"https://www.linkedin.com/jobs/search/?keywords={encoded_search}&geoId={geo_id}&f_TPR=r604800&sortBy=R"
                 
                 self.jobs_scraped = scraper.scrape_jobs(
                     linkedin_url=linkedin_url_7d,
@@ -205,7 +217,32 @@ class Orchestrator:
             else:
                 print(f"✅ Got {len(self.jobs_scraped)} jobs in 24h - using fresh results")
             
+            # Early exclusions: remove job boards, aggregators, staffing agencies before validation
+            print("🔍 Pre-filtering out job boards, aggregators, and staffing agencies...")
+            denylist_domains = [
+                "dice.com", "underdog.io", "mysciencework.com", "biospace.com", "mygwork.com",
+                "indeed.com", "ziprecruiter.com", "glassdoor.com"
+            ]
+            denylist_names = [
+                "dice", "underdog", "biospace", "mygwork", "job board", "aggregator"
+            ]
+            deny_keywords = [
+                "staffing", "recruiting", "talent", "headhunting", "placement", "agency"
+            ]
+            def is_denied(job):
+                company = (job.get("companyName") or job.get("company") or "").lower()
+                url = (job.get("link") or job.get("url") or "").lower()
+                name_hit = any(n in company for n in denylist_names)
+                domain_hit = any(d in url for d in denylist_domains)
+                keyword_hit = any(k in company for k in deny_keywords)
+                return name_hit or domain_hit or keyword_hit
+            before_count = len(self.jobs_scraped)
+            self.jobs_scraped = [j for j in self.jobs_scraped if not is_denied(j)]
+            after_count = len(self.jobs_scraped)
+            print(f"✅ Pre-filter kept {after_count}/{before_count} jobs")
+
             # NEW: If still insufficient, trigger Exa fallback workflow
+            # Also trigger Exa if, after 7d selection-stage fallback, we still have <2 validated companies
             if len(self.jobs_scraped) < exa_fallback_threshold:
                 print(f"\n🔄 ICP TOO NICHE: Only {len(self.jobs_scraped)} jobs found on LinkedIn")
                 print(f"🌐 Activating Exa fallback workflow...")
@@ -322,7 +359,7 @@ class Orchestrator:
                 )
                 
                 try:
-                    response = openai.call_with_retry(
+                    response = self.openai_caller.call_with_retry(
                         prompt=direct_hirer_prompt,
                         model="gpt-4o-mini",
                         response_format="json"
@@ -342,7 +379,41 @@ class Orchestrator:
             self.stats["companies_validated"] = len(filtered_companies)
             print(f"✅ Validated {len(filtered_companies)} direct hirers")
             
-            # Phase 7.5: CRITICAL - Validate Job-ICP Fit (MUST RUN BEFORE PRIORITIZATION)
+            # Phase 7.4: Enrich companies with website data BEFORE validation
+            print("🧠 Phase 7.4: Enriching companies with website intelligence (for validation)...")
+            enricher = CompanyIntelligence()
+            
+            # Format companies for enrichment
+            companies_for_enrichment = []
+            for company in filtered_companies:
+                companies_for_enrichment.append({
+                    "company_name": company["name"],
+                    "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
+                    "careers_url": company.get("careers_url", ""),
+                    "company_description": company.get("description", ""),
+                    "employee_count": company.get("employee_count", 0)
+                })
+            
+            # Enrich all companies
+            try:
+                enriched_data = enricher.enrich_companies(companies_for_enrichment)
+                
+                # Update company descriptions with enriched website data
+                for i, company in enumerate(filtered_companies):
+                    if i < len(enriched_data):
+                        # Use enriched description if available, otherwise keep original
+                        enriched_desc = enriched_data[i].get("insider_intelligence", {}).get("what_they_do", "")
+                        if enriched_desc:
+                            # Prepend enriched data to existing description
+                            company["description"] = f"{enriched_desc}. {company.get('description', '')}"
+                        company["enrichment"] = enriched_data[i].get("insider_intelligence", {})
+                print(f"✅ Enriched {len(filtered_companies)} companies with website data")
+            except Exception as e:
+                print(f"⚠️ Enrichment failed: {e}, continuing with LinkedIn descriptions")
+                for company in filtered_companies:
+                    company["enrichment"] = {}
+            
+            # Phase 7.5: CRITICAL - Validate Job-ICP Fit (NOW WITH FULL WEBSITE DESCRIPTIONS)
             print("🔍 Phase 7.5: CRITICAL JOB-ICP FIT VALIDATION...")
             print("")
             job_validator = JobICPValidator(run_id=self.run_id)
@@ -447,48 +518,24 @@ class Orchestrator:
             
             # Phase 7: Prioritize Top Companies (from validated companies only)
             print("⭐ Phase 7: Selecting top companies from validated pool...")
+            # If we have very few validated companies, log it but continue
+            if len(validated_companies) < 2:
+                print(f"⚠️ Only {len(validated_companies)} validated companies - may need to adjust ICP or search parameters")
+            
+            # Select best companies from validated pool
             prioritizer = CompanyPrioritizer(run_id=self.run_id)
             top_companies = prioritizer.select_top_n(
                 companies=validated_companies,
-                n=4,
+                n=min(4, max(2, len(validated_companies))),  # Select 2-4 based on availability
                 icp_data=self.recruiter_icp
             )
             
             self.stats["final_companies_selected"] = len(top_companies)
             print(f"✅ Selected top {len(top_companies)} companies")
             
-            # Phase 8: Enrich Company Intelligence (Website scraping + AI analysis)
-            print("🧠 Phase 8: Enriching company intelligence...")
-            enricher = CompanyIntelligence()
-            
-            # Format companies for enrichment (enrich_companies expects specific field names)
-            companies_for_enrichment = []
-            for company in top_companies:
-                companies_for_enrichment.append({
-                    "company_name": company["name"],
-                    "company_website": company.get("company_url", "https://www." + company["name"].lower().replace(" ", "") + ".com"),
-                    "careers_url": company.get("careers_url", ""),
-                    "company_description": company.get("description", ""),
-                    "employee_count": company.get("employee_count", 0)
-                })
-            
-            # Enrich all companies at once
-            try:
-                enriched_companies = enricher.enrich_companies(companies_for_enrichment)
-                
-                # Map enrichment results back to top_companies
-                for i, company in enumerate(top_companies):
-                    if i < len(enriched_companies):
-                        company["enrichment"] = enriched_companies[i].get("insider_intelligence", {})
-                    else:
-                        company["enrichment"] = {}
-            except Exception as e:
-                print(f"⚠️ Enrichment failed: {e}")
-                for company in top_companies:
-                    company["enrichment"] = {}
-            
+            # Phase 8: Companies already enriched in Phase 7.4 before validation
+            print("✅ Phase 8: Companies already enriched with website intelligence")
             self.verified_companies = top_companies
-            print(f"✅ Enriched {len(top_companies)} companies")
             
             # Phase 9: Generate Outreach Email
             print("📧 Phase 9: Generating personalized outreach email...")
@@ -504,7 +551,8 @@ class Orchestrator:
                         "job_title": job.get("title") or job.get("positionTitle") or job.get("name") or "Unknown",
                         "description": job.get("descriptionText") or job.get("description", ""),
                         "job_url": job.get("link") or job.get("url", ""),  # LinkedIn uses 'link', Apify returns it
-                        "posted_at": job.get("postedAt", "")
+                        "posted_at": job.get("postedAt", ""),
+                        "validation_reason": job.get("validation_reason", "")  # Include validation context
                     }
                     enriched_jobs.append(enriched_job)
                 
