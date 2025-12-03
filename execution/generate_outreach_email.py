@@ -98,17 +98,8 @@ class EmailGenerator:
         if not companies_section:
             raise Exception("Failed to generate email")
         
-        # Wrap AI output with fixed template
-        recruiter_name = recruiter_data.get("client_name", "there").split()[0]  # First name only
-        email = f"""{recruiter_name},
-
-Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
-
-{companies_section}
-
-Happy to have a quick 10 min chat about how we could explore doing something like this for you if you like. How's 4pm GMT today?
-
-Your call."""
+        # The AI generates the full email now (no wrapper needed)
+        email = companies_section
         
         
         # Validate word count

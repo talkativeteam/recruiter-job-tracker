@@ -170,56 +170,69 @@ Output (JSON only):
 """
 
 # Phase 9: Generate Outreach Email
-PROMPT_GENERATE_EMAIL = """You are writing to a recruiter about companies actively hiring. Your job is to present the company and role information clearly and factually.
+PROMPT_GENERATE_EMAIL = """You are writing to a recruiter about companies actively hiring. Write in a direct, punchy, conversational style.
 
-EXACT FORMAT - DO NOT DEVIATE:
+EXAMPLE OF PERFECT STYLE:
+
+Dan,
+
+Got a couple of roles here that sit right inside your creative wheelhouse. Cool position in the market you've got.
+
+VEED.IO are hiring a Creative Director to lead their brand and product storytelling. Modern SaaS environment. London. It's a high-impact role owning creative direction across an AI-powered video platform used by millions of creators worldwide.
+
+Melotech are pushing the boundaries in generative media, blending AI + video to produce new forms of creative output. They're bringing on an AI Video Creator to experiment, prototype and define how media is made. Start up scale type of spot. 0-50 employees. Seems like exactly the type of candidate you supply.
+
+Holosphere are looking for a Managing Director to steer their immersive/XR studio. Super interesting role. It's a leadership role at the intersection of creative technology, production and client innovation.
+
+Happy to dig up more roles like this if you'd like. Do you have 10 mins tomorrow, I can give you a run down of what its all about and can see if it can blend into your biz dev flow you've got at the moment?
+
+I could do tomorrow (Thursday) at 3pm GMT?
+
+Give me a shout.
+
+---
+
+EXACT FORMAT TO FOLLOW:
 
 {recruiter_name},
 
-Here's some stuff we've dug up for you. Right in your wheelhouse I reckon.
+Got a couple of roles here that sit right inside your [industry/niche] wheelhouse. [Optional 1-line observation about their position/market].
 
-[GENERATE ONLY THIS SECTION - ONE ENTRY PER COMPANY]
+[GENERATE ONLY THIS SECTION - ONE PARAGRAPH PER COMPANY]
 
 SINGLE ROLE FORMAT:
-Company Name — Role Title
-[1-2 lines: what they do, key details]
-[1-2 lines: what the role entails, candidate profile]
-Website: [URL]
-Job: [URL]
+Company Name are hiring a [Role Title] to [what the role does in 1 line]. [1-2 punchy details about environment/scale/stage]. It's a [characterize the role in 1 line]. [Optional: Company size or growth signal].
 
 MULTIPLE ROLES FORMAT (when company has 2+ roles):
-Company Name — Multiple Openings
-[1 line: what they do]
-They're hiring for [Role 1], [Role 2], and [Role 3]. [1 line: what this expansion signals - growth/scaling/diversification]
-Website: [URL]
-Jobs: [URL 1], [URL 2], [URL 3]
+Company Name are [action verb: scaling/expanding/building] their [department/function]. [1 line what they do]. They're bringing on [Role 1], [Role 2], and [Role 3]. [1 line about what this signals - scaling phase, market expansion, etc]. [Company size if relevant].
 
 [CONTINUE FOR ALL COMPANIES - ONE PARAGRAPH PER COMPANY, NOT PER ROLE]
 
-Shout out if you want the contact info for any of these folks. We send this type of thing over to recruiters all the time with the decision makers info and phone number.
+Happy to dig up more roles like this if you'd like. Do you have 10 mins tomorrow, I can give you a run down of what its all about and can see if it can blend into your biz dev flow you've got at the moment?
 
-Happy to have a quick 10 min chat about how we could explore doing something like this for you if you like. How's 4pm GMT today?
+I could do tomorrow (Thursday) at 3pm {recruiter_timezone}?
 
-Your call.
+Give me a shout.
 
 CRITICAL RULES:
-1. ONLY generate the companies section (formatted entries)
-2. DO NOT generate the opening line or closing section - those are fixed
-3. If a company has multiple roles, group them into ONE entry with "Multiple Openings" format
-4. INCLUDE website URL AND job posting links for EVERY role
-5. Keep each company entry to 4-5 lines max
-6. Use ACTUAL company names and REAL job posting URLs
-7. Factual descriptions only - no marketing speak
-8. When multiple roles: highlight what the expansion means (scaling, growth phase, diversification)
-9. No signature or extra closing lines
-10. Output plain text only, NO JSON, NO MARKDOWN
-11. NEVER repeat the same company twice - group all their roles together
-12. USE VALIDATION CONTEXT: Each role has validation_reason field. If it indicates strong fit, frame confidently ("perfect match for your portfolio"). If it shows borderline fit, acknowledge transparently ("not a perfect fit but worth exploring because..."). Be honest and helpful.
+1. ONLY generate the companies section (formatted paragraphs between opening and closing)
+2. DO NOT generate the opening greeting or closing section - those are fixed in the template
+3. Short, punchy sentences. Direct language. No fluff.
+4. Use present tense, active voice: "are hiring", "are building", "are scaling"
+5. NO urls, NO links, NO websites, NO job posting links - keep it conversational
+6. Characterize roles with context: "Modern SaaS environment", "Start up scale type of spot", "Super interesting role"
+7. Include company size signals when relevant: "0-50 employees", "scaling fast", "established player"
+8. If multiple roles, frame as company growth narrative, not a list
+9. Each company = one tight paragraph (3-5 sentences max)
+10. Match the tone: direct, insider knowledge, peer-to-peer, slightly casual but professional
+11. Output plain text only, NO JSON, NO MARKDOWN formatting
+12. NEVER repeat the same company twice - group all their roles into one paragraph
+13. Be specific about what makes each role interesting - avoid generic descriptions
 
 Companies data to include:
 {companies_data}
 
-Generate ONLY the companies section (one entry per company):"""
+Generate ONLY the companies section (one paragraph per company):"""
 
 # Fallback prompt when no explicit job postings are present
 PROMPT_GENERATE_EMAIL_NO_ROLES = """You are writing to a recruiter about high-signal companies worth approaching now. No explicit job postings were captured, so focus on credible signals and why outreach makes sense.
