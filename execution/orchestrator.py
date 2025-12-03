@@ -520,9 +520,12 @@ class Orchestrator:
             print("⭐ Phase 7: Selecting top companies from validated pool...")
             
             # 🔥 If we have < 2 validated companies AND data_source is LinkedIn, supplement with Exa
+            print(f"🔍 Checking if Exa supplement needed: {len(validated_companies)} validated, data_source={self.stats.get('data_source')}")
             if len(validated_companies) < 2 and self.stats.get("data_source") == "linkedin":
                 print(f"⚠️ Only {len(validated_companies)} validated companies from LinkedIn")
                 print(f"🔄 SUPPLEMENTING WITH EXA: Need at least 2 companies for email")
+                
+                try:
                 
                 # Preserve LinkedIn validated companies
                 linkedin_validated_companies = validated_companies.copy()
@@ -590,6 +593,12 @@ class Orchestrator:
                         print(f"⚠️ No Exa companies passed employee count verification")
                 else:
                     print(f"⚠️ Exa found 0 additional companies")
+                
+                except Exception as e:
+                    print(f"❌ Exa supplement failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    print(f"⚠️ Continuing with {len(validated_companies)} LinkedIn companies")
             
             # Select best companies from validated pool
             prioritizer = CompanyPrioritizer(run_id=self.run_id)
