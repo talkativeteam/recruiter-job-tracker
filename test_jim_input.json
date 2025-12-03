@@ -1,0 +1,10 @@
+{
+  "client_name": "Jim",
+  "client_email": "jimoddo@esptalent.com",
+  "client_website": "https://www.esptalent.com",
+  "email_sender_name": "Sid",
+  "email_sender_address": "sid@talkativecrew.com",
+  "max_jobs_to_scrape": 400,
+  "callback_webhook_url": null,
+  "recruiter_timezone": "GMT"
+}

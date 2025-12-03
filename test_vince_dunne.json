@@ -4,6 +4,6 @@
   "client_website": "https://dunnesearchgroup.com/",
   "email_sender_name": "Your Name",
   "email_sender_address": "you@example.com",
-  "max_jobs_to_scrape": 100,
+  "max_jobs_to_scrape": 400,
   "recruiter_timezone": "EST"
 }
