@@ -23,9 +23,18 @@ LinkedIn geoId Reference:
 Website Content:
 {website_content}
 
+CRITICAL: Be specific about what type of roles they fill. Don't just say "regulatory affairs" - say "regulatory affairs specialists managing FDA submissions and clinical trial compliance" or "supply chain QA specialists managing distribution logistics". The specificity matters for matching.
+
+Examples:
+- ❌ BAD: "places clinical research roles"
+- ✅ GOOD: "places clinical research associates who monitor trial sites and manage patient recruitment"
+
+- ❌ BAD: "fills regulatory affairs positions" 
+- ✅ GOOD: "fills regulatory affairs specialists focused on trial protocol design and FDA submissions, NOT supply chain or logistics roles"
+
 Output as JSON:
 {{
-  "recruiter_summary": "Brief 2-3 sentence summary of what the recruiter does, their target market (ICP), which industries/company types they serve, and which roles they typically fill",
+  "recruiter_summary": "Brief 2-3 sentence summary of what the recruiter does, their target market (ICP), which industries/company types they serve, and which roles they typically fill. BE SPECIFIC about what the roles actually DO (e.g., patient-facing vs lab work, trial management vs supply chain, etc.)",
   "primary_country": "United States",
   "linkedin_geo_id": "103644278"
 }}

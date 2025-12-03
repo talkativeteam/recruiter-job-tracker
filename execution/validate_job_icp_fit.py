@@ -159,15 +159,16 @@ VALIDATION RULES (STRICT):
    - REJECT if company description mentions "courses", "coaching", "training", "learning platform", "career development", "job placement", "staffing solutions"
    - ONLY accept if company has REAL product/service and directly serves the recruiter's buyer type (e.g., health systems, labs, physicians, diagnostic companies)
 
-3. **REJECT if role is LOGISTICS/SUPPLY CHAIN disguised as clinical/regulatory**
-   - INSTANT REJECT: "supply chain", "distribution", "logistics", "shipping", "import/export", "GDP", "GMP compliance", "serialization", "warehouse", "inventory"
-   - INSTANT REJECT: QA/Regulatory roles focused on "clinical supplies", "investigational product", "IMP", "material distribution"
-   - For clinical/biotech recruiters: ONLY accept if role is about **trial execution, patient-facing work, site management, protocol design** - NOT supply/logistics
-   - Example: "QA Associate - Clinical Supply Chain" = REJECT (it's logistics), "Clinical Research Associate" = ACCEPT (it's trial execution)
+3. **Deeply understand the recruiter's ACTUAL role type** - Read the recruiter summary carefully
+   - If recruiter says "clinical trial execution" or "clinical research associates", understand they mean PATIENT-FACING, SITE-BASED, TRIAL MANAGEMENT roles
+   - NOT bench science, NOT lab work, NOT supply chain/logistics, NOT manufacturing QA
+   - Example: A recruiter who fills "Clinical Research Associates" wants CRAs who monitor trial sites, NOT scientists doing lab research
+   - Example: "Regulatory Affairs" for a clinical recruiter means FDA submissions, protocol design - NOT supply chain compliance or logistics
+   - Look at the ACTUAL job description details - is it about trial execution, patients, sites, protocols? Or is it about shipping, logistics, warehouse, distribution?
 
 4. **Match the ROLE TYPE** - Is this the kind of role the recruiter fills?
    - Example: If recruiter fills "clinical sales", accept "Territory Manager - Diagnostics", reject "VP Sales - Vending"
-   - For clinical trial recruiters: Accept CRA, CPM, CSM, Clinical Ops, Site Manager, Medical Monitor - REJECT bench scientists, lab techs, supply chain QA
+   - Read the job description carefully to understand what the role actually DOES day-to-day, not just the title
 
 5. **Match SENIORITY** - Is this the right level?
    - Be flexible with this: "Director" can work for exec search, but NOT if industry is mismatched
