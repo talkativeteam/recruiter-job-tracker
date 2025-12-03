@@ -215,9 +215,9 @@ I could do tomorrow (Thursday) at 4pm GMT?
 Give me a shout.
 
 CRITICAL RULES:
-1. ONLY generate the companies section (formatted paragraphs between opening and closing)
-2. DO NOT generate the opening greeting or closing section - those are FIXED exactly as shown
-3. The closing is FIXED - always "3pm GMT" regardless of recruiter timezone
+1. Generate the COMPLETE email including opening greeting, companies section, and closing
+2. Follow the EXACT format shown above - do not deviate
+3. The closing is FIXED - always "4pm GMT"
 4. Short, punchy sentences. Direct language. No fluff.
 5. Use present tense, active voice: "are hiring", "are building", "are scaling"
 6. NO urls, NO links, NO websites, NO job posting links - keep it conversational
