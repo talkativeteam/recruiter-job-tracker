@@ -210,24 +210,25 @@ Company Name are [action verb: scaling/expanding/building] their [department/fun
 
 Happy to dig up more roles like this if you'd like. Do you have 10 mins tomorrow, I can give you a run down of what its all about and can see if it can blend into your biz dev flow you've got at the moment?
 
-I could do tomorrow (Thursday) at 3pm {recruiter_timezone}?
+I could do tomorrow (Thursday) at 3pm GMT?
 
 Give me a shout.
 
 CRITICAL RULES:
 1. ONLY generate the companies section (formatted paragraphs between opening and closing)
-2. DO NOT generate the opening greeting or closing section - those are fixed in the template
-3. Short, punchy sentences. Direct language. No fluff.
-4. Use present tense, active voice: "are hiring", "are building", "are scaling"
-5. NO urls, NO links, NO websites, NO job posting links - keep it conversational
-6. Characterize roles with context: "Modern SaaS environment", "Start up scale type of spot", "Super interesting role"
-7. Include company size signals when relevant: "0-50 employees", "scaling fast", "established player"
-8. If multiple roles, frame as company growth narrative, not a list
-9. Each company = one tight paragraph (3-5 sentences max)
-10. Match the tone: direct, insider knowledge, peer-to-peer, slightly casual but professional
-11. Output plain text only, NO JSON, NO MARKDOWN formatting
-12. NEVER repeat the same company twice - group all their roles into one paragraph
-13. Be specific about what makes each role interesting - avoid generic descriptions
+2. DO NOT generate the opening greeting or closing section - those are FIXED exactly as shown
+3. The closing is FIXED - always "3pm GMT" regardless of recruiter timezone
+4. Short, punchy sentences. Direct language. No fluff.
+5. Use present tense, active voice: "are hiring", "are building", "are scaling"
+6. NO urls, NO links, NO websites, NO job posting links - keep it conversational
+7. Characterize roles with context: "Modern SaaS environment", "Start up scale type of spot", "Super interesting role"
+8. Include company size signals when relevant: "0-50 employees", "scaling fast", "established player"
+9. If multiple roles, frame as company growth narrative, not a list
+10. Each company = one tight paragraph (3-5 sentences max)
+11. Match the tone: direct, insider knowledge, peer-to-peer, slightly casual but professional
+12. Output plain text only, NO JSON, NO MARKDOWN formatting
+13. NEVER repeat the same company twice - group all their roles into one paragraph
+14. Be specific about what makes each role interesting - avoid generic descriptions
 
 Companies data to include:
 {companies_data}
