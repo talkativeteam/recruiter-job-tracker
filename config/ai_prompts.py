@@ -184,9 +184,9 @@ Melotech are pushing the boundaries in generative media, blending AI + video to 
 
 Holosphere are looking for a Managing Director to steer their immersive/XR studio. Super interesting role. It's a leadership role at the intersection of creative technology, production and client innovation.
 
-Happy to dig up more roles like this if you'd like. Do you have 10 mins tomorrow, I can give you a run down of what its all about and can see if it can blend into your biz dev flow you've got at the moment?
+Happy to dig up more roles like this if you'd like. You on for a quick 10 min chat, happy to give you a run down of what its all about and can see if this can blend into your biz dev flow you've got running at the moment?
 
-I could do tomorrow (Thursday) at 3pm GMT?
+I could do tomorrow (Thursday) at 4pm GMT?
 
 Give me a shout.
 
@@ -208,9 +208,9 @@ Company Name are [action verb: scaling/expanding/building] their [department/fun
 
 [CONTINUE FOR ALL COMPANIES - ONE PARAGRAPH PER COMPANY, NOT PER ROLE]
 
-Happy to dig up more roles like this if you'd like. Do you have 10 mins tomorrow, I can give you a run down of what its all about and can see if it can blend into your biz dev flow you've got at the moment?
+Happy to dig up more roles like this if you'd like. You on for a quick 10 min chat, happy to give you a run down of what its all about and can see if this can blend into your biz dev flow you've got running at the moment?
 
-I could do tomorrow (Thursday) at 3pm GMT?
+I could do tomorrow (Thursday) at 4pm GMT?
 
 Give me a shout.
 
